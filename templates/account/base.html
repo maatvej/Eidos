@@ -1,0 +1,198 @@
+<!-- filename: templates/account/base.html -->
+<!doctype html>
+<html lang="ru" data-theme="dark" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      {% block head_title %}Eidos | Voice Intelligence{% endblock %}
+    </title>
+
+    <!-- FOUC Prevention Script -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem("eidos_theme");
+          var theme = saved || (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+          document.documentElement.setAttribute("data-theme", theme);
+          if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+          } else {
+            document.documentElement.classList.remove("dark");
+          }
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
+
+    <!-- Tailwind CSS CDN & Config -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: ['class', '[data-theme="dark"]'],
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Manrope', 'system-ui', 'sans-serif'],
+              display: ['Unbounded', 'Manrope', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+            },
+            colors: {
+              brand: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                200: '#c7d2fe',
+                300: '#a5b4fc',
+                400: '#818cf8',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+                800: '#3730a3',
+                900: '#312e81',
+              }
+            }
+          }
+        }
+      };
+    </script>
+
+    <link rel="stylesheet" href="/static/css/app.css" />
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="auth-page-body">
+    <div class="auth-page-container">
+      <!-- Top Bar with Theme Toggle & Navigation -->
+      <header class="auth-top-bar" role="banner">
+        <a href="/" class="auth-brand-link">
+          <div class="brand-logo-icon" aria-hidden="true">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"
+              ></path>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+              <line x1="12" y1="19" x2="12" y2="22"></line>
+            </svg>
+          </div>
+          <span class="auth-brand-name">Eidos Voice Intelligence</span>
+        </a>
+
+        <button
+          id="themeToggleBtn"
+          class="icon-button"
+          type="button"
+          aria-label="Переключить тему оформления"
+          aria-pressed="false"
+          title="Переключить тему оформления"
+        >
+          <span id="themeIconSlot" style="display:inline-flex; align-items:center; justify-content:center;">
+            <svg
+              id="themeIcon"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          </span>
+        </button>
+      </header>
+
+      <!-- Main Auth Content Area -->
+      <main class="auth-wrapper" role="main">
+        <div class="auth-card">{% block content %}{% endblock %}</div>
+      </main>
+
+      <!-- Footer Info -->
+      <footer class="auth-footer">
+        <p>
+          &copy; 2026 Eidos Voice Intelligence. Защищенная система управления
+          встречами.
+        </p>
+      </footer>
+    </div>
+
+    <!-- Toast Notifications Root -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <script>
+      // Synchronized theme script for auth pages with transition-locking
+      (function () {
+        var btn = document.getElementById("themeToggleBtn");
+        var iconSlot = document.getElementById("themeIconSlot");
+        var isSwitching = false;
+
+        function updateUI(theme) {
+          var isDark = theme === "dark";
+          if (btn) {
+            btn.setAttribute("aria-pressed", isDark ? "true" : "false");
+            btn.setAttribute("aria-label", isDark ? "Переключить на светлую тему" : "Переключить на тёмную тему");
+            btn.setAttribute("title", isDark ? "Переключить на светлую тему" : "Переключить на тёмную тему");
+          }
+          if (iconSlot) {
+            if (isDark) {
+              iconSlot.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>';
+            } else {
+              iconSlot.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+            }
+          }
+        }
+
+        var currentTheme = document.documentElement.getAttribute("data-theme") || "dark";
+        updateUI(currentTheme);
+
+        if (btn) {
+          btn.addEventListener("click", function () {
+            if (isSwitching) return;
+            isSwitching = true;
+
+            var current = document.documentElement.getAttribute("data-theme") || "dark";
+            var next = current === "dark" ? "light" : "dark";
+
+            document.documentElement.classList.add("theme-transitioning");
+            document.documentElement.setAttribute("data-theme", next);
+            if (next === "dark") {
+              document.documentElement.classList.add("dark");
+            } else {
+              document.documentElement.classList.remove("dark");
+            }
+
+            try {
+              localStorage.setItem("eidos_theme", next);
+            } catch (e) {}
+
+            updateUI(next);
+
+            setTimeout(function () {
+              document.documentElement.classList.remove("theme-transitioning");
+              isSwitching = false;
+            }, 300);
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

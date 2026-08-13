@@ -1,0 +1,43 @@
+<!-- filename: templates/account/logout.html -->
+{% extends "account/base.html" %} {% block head_title %}Выход из системы | Eidos
+Voice Intelligence{% endblock %} {% block content %}
+<div class="auth-card-header">
+  <div class="auth-badge-icon" aria-hidden="true">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+      <polyline points="16 17 21 12 16 7"></polyline>
+      <line x1="21" y1="12" x2="9" y2="12"></line>
+    </svg>
+  </div>
+  <h2 class="auth-card-title">Выход из системы</h2>
+  <p class="auth-card-subtitle">
+    Вы действительно хотите завершить текущую сессию?
+  </p>
+</div>
+
+<form class="auth-form" method="POST" action="{% url 'account_logout' %}">
+  {% csrf_token %} {% if redirect_field_value %}
+  <input
+    type="hidden"
+    name="{{ redirect_field_name }}"
+    value="{{ redirect_field_value }}"
+  />
+  {% endif %}
+  <button type="submit" class="btn-primary">
+    <span>Завершить сеанс</span>
+  </button>
+</form>
+
+<div class="auth-card-footer" style="justify-content: center">
+  <a href="/" class="subtle-link">&larr; Отмена и возврат к платформе</a>
+</div>
+{% endblock %}

@@ -1,0 +1,230 @@
+# filename: tests/test_llm_processor.py
+"""Unit tests for the LLM intelligence engine, dynamic summarizer, and fallback logic."""
+
+import json
+from unittest.mock import AsyncMock, patch
+
+import httpx
+import pytest
+
+from app.core.config import settings
+from app.domain.entities import ConversationAnalysis
+from app.ml.llm_processor import LLMIntelligenceEngine, LocalDynamicSummarizer
+
+
+@pytest.fixture
+def engine() -> LLMIntelligenceEngine:
+    return LLMIntelligenceEngine()
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_empty_transcript(engine: LLMIntelligenceEngine) -> None:
+    """Validates empty and whitespace-only transcript input handling."""
+    res1 = await engine.extract_intelligence("", language="ru")
+    assert isinstance(res1, ConversationAnalysis)
+    assert res1.title == "Пустая запись"
+    assert "отсутствует" in res1.executive_summary or "No speech" in res1.executive_summary
+    assert res1.key_decisions == []
+    assert res1.action_items == []
+
+    res2 = await engine.extract_intelligence("   \n\t  ", language="en")
+    assert isinstance(res2, ConversationAnalysis)
+    assert res2.action_items == []
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_short_transcript(engine: LLMIntelligenceEngine) -> None:
+    """Validates lightweight processing for very short transcripts."""
+    short_text = "SPEAKER_01: Hello team."
+    res = await engine.extract_intelligence(short_text, language="en")
+    assert isinstance(res, ConversationAnalysis)
+    assert res.executive_summary != ""
+    assert res.overall_sentiment in ("POSITIVE", "NEUTRAL", "NEGATIVE")
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_local_fallback_ru(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates dynamic local summarization for Russian transcripts when API key is mock."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "mock-key")
+
+    transcript = (
+        "SPEAKER_00: Мы собрались, чтобы обсудить разработку модуля выжимки встречами. "
+        "SPEAKER_01: Отлично. Согласовали выгрузку в PDF, DOCX, SRT и VTT. "
+        "SPEAKER_00: Иван должен завершить юнит-тестирование до 2026-08-20. Это срочно."
+    )
+
+    result = await engine.extract_intelligence(transcript, language="ru")
+
+    assert isinstance(result, ConversationAnalysis)
+    assert "модуля" in result.executive_summary or "собрались" in result.executive_summary
+    assert len(result.key_decisions) > 0
+    assert any(
+        "Согласовали" in d or "выгрузку" in d or "Обсуждение" in d for d in result.key_decisions
+    )
+    assert len(result.action_items) > 0
+    assert result.action_items[0].priority in ("HIGH", "MEDIUM", "LOW")
+    assert result.overall_sentiment == "POSITIVE"
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_local_fallback_en(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates dynamic local extractive summarization for English transcripts."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "mock-key")
+
+    transcript = (
+        "SPEAKER_00: We agreed to migrate our database to PostgreSQL next week. "
+        "SPEAKER_01: Sarah need to verify the schema backup by 2026-08-15. "
+        "SPEAKER_00: Great progress, all performance benchmarks are excellent."
+    )
+
+    result = await engine.extract_intelligence(transcript, language="en")
+
+    assert isinstance(result, ConversationAnalysis)
+    assert result.overall_sentiment == "POSITIVE"
+    assert len(result.key_decisions) > 0
+    assert len(result.action_items) > 0
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_long_transcript_chunking(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates chunking and map-reduce condensation for large transcripts."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "mock-key")
+
+    sentence = "Участники команды обсудили текущие аспекты архитектурного решения. "
+    long_transcript = sentence * 300  # Creates ~18,000 character string
+
+    result = await engine.extract_intelligence(long_transcript, language="ru")
+    assert isinstance(result, ConversationAnalysis)
+    assert len(result.executive_summary) > 0
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_external_llm_api_success(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates successful integration with external LLM API."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-valid-test-key")
+    monkeypatch.setattr(settings, "LLM_MODEL_NAME", "gpt-4o")
+
+    mock_llm_response = {
+        "executive_summary": "The team agreed on PostgreSQL migration.",
+        "key_decisions": ["Migrate database to PostgreSQL"],
+        "action_items": [
+            {
+                "task": "Prepare database migration scripts",
+                "owner": "Sarah",
+                "due_date": "2026-08-15",
+                "priority": "HIGH",
+            }
+        ],
+        "overall_sentiment": "POSITIVE",
+    }
+
+    fake_http_data = {"choices": [{"message": {"content": json.dumps(mock_llm_response)}}]}
+
+    mock_post = AsyncMock()
+    mock_post.return_value = httpx.Response(200, json=fake_http_data)
+
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        transcript = (
+            "SPEAKER_00: Let's finalize the database migration tasks for core cluster "
+            "today before EOD so we can begin performance benchmarking."
+        )
+        result = await engine.extract_intelligence(transcript, language="en")
+
+        assert result.executive_summary == "The team agreed on PostgreSQL migration."
+        assert result.key_decisions == ["Migrate database to PostgreSQL"]
+        assert len(result.action_items) == 1
+        assert result.action_items[0].task == "Prepare database migration scripts"
+        assert result.action_items[0].owner == "Sarah"
+        assert result.action_items[0].priority == "HIGH"
+        assert result.overall_sentiment == "POSITIVE"
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_llm_api_failure_fallback(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates graceful fallback to local dynamic summarizer when LLM API call fails."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-valid-test-key")
+
+    mock_post = AsyncMock(side_effect=httpx.HTTPError("Service Unavailable"))
+
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        transcript = (
+            "SPEAKER_00: Мы должны запустить новый релиз сегодня вечером. "
+            "SPEAKER_01: Согласовали график деплоя. Анна должна проверить логи локально."
+        )
+        result = await engine.extract_intelligence(transcript, language="ru")
+
+        assert isinstance(result, ConversationAnalysis)
+        assert len(result.executive_summary) > 0
+        assert len(result.key_decisions) > 0
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_malformed_json_fallback(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates fallback when LLM API returns invalid JSON formatting."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-valid-test-key")
+
+    fake_http_data = {
+        "choices": [
+            {
+                "message": {
+                    "content": "This is raw non-json plain text response from faulty LLM model."
+                }
+            }
+        ]
+    }
+
+    mock_post = AsyncMock()
+    mock_post.return_value = httpx.Response(200, json=fake_http_data)
+
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        transcript = (
+            "SPEAKER_00: We decided to proceed with sprint planning for "
+            "the upcoming quarter right after end-to-end testing."
+        )
+        result = await engine.extract_intelligence(transcript, language="en")
+
+        assert isinstance(result, ConversationAnalysis)
+        assert len(result.executive_summary) > 0
+
+
+def test_local_dynamic_summarizer_helper_functions() -> None:
+    """Directly tests LocalDynamicSummarizer helper methods."""
+    raw_text = "Short text."
+    sentences = LocalDynamicSummarizer.split_into_sentences(raw_text)
+    assert isinstance(sentences, list)
+
+    title = LocalDynamicSummarizer.extract_title(sentences, is_russian=False)
+    assert isinstance(title, str)
+    assert title != ""
+
+    summary = LocalDynamicSummarizer.extract_summary(sentences, is_russian=False)
+    assert isinstance(summary, str)
+
+    decisions = LocalDynamicSummarizer.extract_decisions(
+        ["We decided to ship feature A."], is_russian=False
+    )
+    assert len(decisions) > 0
+    assert "ship feature A" in decisions[0]
+
+    actions = LocalDynamicSummarizer.extract_action_items(
+        ["John need to create PR ASAP."], is_russian=False
+    )
+    assert len(actions) > 0
+    assert actions[0].priority == "HIGH"
+
+    sentiment = LocalDynamicSummarizer.analyze_sentiment(
+        "Everything is great and excellent!", is_russian=False
+    )
+    assert sentiment == "POSITIVE"

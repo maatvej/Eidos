@@ -1,0 +1,189 @@
+<!-- filename: templates/account/signup.html -->
+{% extends "account/base.html" %} {% block head_title %}Регистрация | Eidos
+Voice Intelligence{% endblock %} {% block content %}
+<div class="auth-card-header">
+  <div class="auth-badge-icon" aria-hidden="true">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+      <circle cx="8.5" cy="7" r="4"></circle>
+      <line x1="20" y1="8" x2="20" y2="14"></line>
+      <line x1="23" y1="11" x2="17" y2="11"></line>
+    </svg>
+  </div>
+  <h2 class="auth-card-title">Регистрация</h2>
+  <p class="auth-card-subtitle">
+    Создайте аккаунт для использования возможностей платформы
+  </p>
+</div>
+
+{% if form.errors %}
+<div class="auth-alert" role="alert">
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="8" x2="12" y2="12"></line>
+    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+  </svg>
+  <div>
+    {% for field in form %} {% for error in field.errors %}
+    <div><strong>{{ field.label }}:</strong> {{ error }}</div>
+    {% endfor %} {% endfor %} {% for error in form.non_field_errors %}
+    <div>{{ error }}</div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<form class="auth-form" method="POST" action="{% url 'account_signup' %}">
+  {% csrf_token %}
+
+  <div class="form-field-group">
+    <label for="id_username">Имя пользователя</label>
+    <div class="input-icon-wrapper">
+      <svg
+        class="input-icon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+        <circle cx="12" cy="7" r="4"></circle>
+      </svg>
+      <input
+        type="text"
+        name="username"
+        id="id_username"
+        placeholder="Придумайте уникальный логин"
+        required
+        autofocus
+        autocomplete="username"
+      />
+    </div>
+  </div>
+
+  <div class="form-field-group">
+    <label for="id_email">Электронная почта</label>
+    <div class="input-icon-wrapper">
+      <svg
+        class="input-icon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path
+          d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+        ></path>
+        <polyline points="22,6 12,13 2,6"></polyline>
+      </svg>
+      <input
+        type="email"
+        name="email"
+        id="id_email"
+        placeholder="user@domain.com"
+        required
+        autocomplete="email"
+      />
+    </div>
+  </div>
+
+  <div class="form-field-group">
+    <label for="id_password1">Пароль</label>
+    <div class="input-icon-wrapper">
+      <svg
+        class="input-icon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      <input
+        type="password"
+        name="password1"
+        id="id_password1"
+        placeholder="••••••••"
+        required
+        autocomplete="new-password"
+      />
+    </div>
+  </div>
+
+  <div class="form-field-group">
+    <label for="id_password2">Подтверждение пароля</label>
+    <div class="input-icon-wrapper">
+      <svg
+        class="input-icon"
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+      </svg>
+      <input
+        type="password"
+        name="password2"
+        id="id_password2"
+        placeholder="••••••••"
+        required
+        autocomplete="new-password"
+      />
+    </div>
+  </div>
+
+  {% if redirect_field_value %}
+  <input
+    type="hidden"
+    name="{{ redirect_field_name }}"
+    value="{{ redirect_field_value }}"
+  />
+  {% endif %}
+
+  <button type="submit" class="btn-primary">
+    <span>Создать аккаунт</span>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2.2"
+    >
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+      <polyline points="12 5 19 12 12 19"></polyline>
+    </svg>
+  </button>
+</form>
+
+<div class="auth-card-footer">
+  <span>Уже есть аккаунт?</span>
+  <a href="{% url 'account_login' %}" class="accent-link">Войти в систему</a>
+</div>
+{% endblock %}
