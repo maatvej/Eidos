@@ -187,7 +187,7 @@ COPY --chown=appuser:appuser static static
 COPY --chown=appuser:appuser templates templates
 COPY --chown=appuser:appuser django_static django_static
 COPY --chown=appuser:appuser alembic alembic
-COPY --chown=appuser:appuser alembic.ini manage.py run_local.py pyproject.toml ./
+COPY --chown=appuser:appuser manage.py run_local.py pyproject.toml ./
 
 RUN mkdir -p /tmp/conversation_ai ./local_storage && \
     chown -R appuser:appuser /tmp/conversation_ai ./local_storage /app

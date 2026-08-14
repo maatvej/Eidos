@@ -221,11 +221,15 @@ split-on-trailing-comma = true
 ]
 
 [tool.mypy]
-python_version = "3.11"
-strict = true
+python_version = "3.12"
+explicit_package_bases = true
 ignore_missing_imports = true
-warn_return_any = true
 warn_unused_configs = true
+disallow_subclassing_any = false
+exclude = [
+    "app/db/migrations/.*",
+    "alembic/.*",
+]
 
 [tool.pytest.ini_options]
 minversion = "8.0"

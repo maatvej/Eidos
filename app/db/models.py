@@ -75,3 +75,7 @@ class TranscriptionJob(models.Model):
 
     def __str__(self) -> str:
         return f"{self.filename} ({self.status})"
+
+
+# Model aliases for multi-ORM compatibility
+TranscriptionJobModel = TranscriptionJob
