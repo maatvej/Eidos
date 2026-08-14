@@ -12,6 +12,7 @@ import django
 from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler
 from django.core.asgi import get_asgi_application
 
+
 # Initialize Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.core.django_settings")
 django.setup()
@@ -34,11 +35,7 @@ class UnifiedASGIApplication:
         if scope["type"] in ("http", "websocket"):
             path: str = scope.get("path", "")
             # Route Django Admin, Allauth accounts, and Django static files to Django ASGI handler
-            if (
-                path.startswith("/admin")
-                or path.startswith("/accounts")
-                or path.startswith("/django-static")
-            ):
+            if path.startswith(("/admin", "/accounts", "/django-static")):
                 await self.django_app(scope, receive, send)
                 return
 

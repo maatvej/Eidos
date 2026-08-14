@@ -1,0 +1,55 @@
+# filename: .pre-commit-config.yaml
+# Production-grade Git hooks configuration using pre-commit and Ruff
+
+default_install_hook_types:
+  - pre-push
+  - pre-commit
+
+default_stages:
+  - pre-push
+  - pre-commit
+
+fail_fast: true
+minimum_pre_commit_version: "3.6.0"
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      # 1. Format code with Ruff
+      - id: ruff-format
+        name: ruff-format
+        description: "Apply strict code formatting with Ruff"
+        stages: [pre-commit, pre-push]
+
+      # 2. Aggressive lint check with auto-fix capability
+      - id: ruff
+        name: ruff-lint
+        description: "Run aggressive Ruff linter ruleset"
+        args: [--fix, --exit-non-zero-on-fix]
+        stages: [pre-commit, pre-push]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+        name: check-yaml
+        stages: [pre-commit, pre-push]
+      - id: check-toml
+        name: check-toml
+        stages: [pre-commit, pre-push]
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        stages: [pre-commit, pre-push]
+        exclude: ^django_static/
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        stages: [pre-commit, pre-push]
+        exclude: ^django_static/
+      - id: check-added-large-files
+        name: check-added-large-files
+        args: ["--maxkb=10000"]
+        stages: [pre-commit, pre-push]
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        stages: [pre-commit, pre-push]

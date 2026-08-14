@@ -4,6 +4,7 @@ inline editing, bulk speaker renames, audio file serving, and multi-format expor
 with Django Auth & Permission enforcement.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -36,6 +37,7 @@ from app.repository.job_repository import JobRepository
 from app.services.export_service import ExportService
 from app.workers.tasks import process_transcription_job, startup
 
+
 router = APIRouter(prefix="/transcription", tags=["Transcription Management"])
 export_service = ExportService()
 
@@ -66,8 +68,7 @@ async def upload_audio_file(
     target_path = settings.STORAGE_DIR / f"{job_id}_{safe_filename}"
 
     content = await file.read()
-    with open(target_path, "wb") as buffer:
-        buffer.write(content)
+    await asyncio.to_thread(target_path.write_bytes, content)
 
     job_entity = TranscriptionJobEntity(
         id=job_id,
@@ -251,34 +252,34 @@ async def export_transcript(
             media_type="text/plain; charset=utf-8",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.txt"},
         )
-    elif export_format == "json":
+    if export_format == "json":
         return Response(
             content=job.result.model_dump_json(indent=2),
             media_type="application/json; charset=utf-8",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.json"},
         )
-    elif export_format == "srt":
+    if export_format == "srt":
         srt_data = export_service.to_srt(job.result)
         return Response(
             content=srt_data,
             media_type="text/plain; charset=utf-8",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.srt"},
         )
-    elif export_format == "vtt":
+    if export_format == "vtt":
         vtt_data = export_service.to_vtt(job.result)
         return Response(
             content=vtt_data,
             media_type="text/vtt; charset=utf-8",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.vtt"},
         )
-    elif export_format == "pdf":
+    if export_format == "pdf":
         pdf_bytes = export_service.to_pdf(job.result)
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={"Content-Disposition": f"attachment; filename={filename_base}.pdf"},
         )
-    elif export_format == "docx":
+    if export_format == "docx":
         docx_bytes = export_service.to_docx(job.result)
         return Response(
             content=docx_bytes,

@@ -20,6 +20,7 @@ from app.schemas.account import (
     UserProfileUpdate,
 )
 
+
 router = APIRouter(prefix="/account", tags=["Account & Transcription History"])
 
 

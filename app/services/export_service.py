@@ -29,18 +29,19 @@ class ExportService:
             lines.append("=== MEETING SUMMARY / ВЫЖИМКА ВСТРЕЧИ ===")
             lines.append(result.analysis.executive_summary)
             lines.append("\n=== KEY DECISIONS / КЛЮЧЕВЫЕ РЕШЕНИЯ ===")
-            for dec in result.analysis.key_decisions:
-                lines.append(f"• {dec}")
+            lines.extend(f"• {dec}" for dec in result.analysis.key_decisions)
             lines.append("\n=== ACTION ITEMS / ЗАДАЧИ ===")
-            for item in result.analysis.action_items:
-                lines.append(f"[{item.priority}] {item.task} (Owner: {item.owner or 'Unassigned'})")
+            lines.extend(
+                f"[{item.priority}] {item.task} (Owner: {item.owner or 'Unassigned'})"
+                for item in result.analysis.action_items
+            )
             lines.append("\n" + "=" * 40 + "\n")
 
         lines.append("=== FULL TRANSCRIPT / ПОЛНАЯ СТЕНОГРАММА ===")
-        for utt in result.utterances:
-            lines.append(
-                f"[{self._format_timestamp_srt(utt.start)} - {self._format_timestamp_srt(utt.end)}] {utt.speaker}: {utt.text}"
-            )
+        lines.extend(
+            f"[{self._format_timestamp_srt(utt.start)} - {self._format_timestamp_srt(utt.end)}] {utt.speaker}: {utt.text}"
+            for utt in result.utterances
+        )
 
         return "\n".join(lines)
 

@@ -49,7 +49,7 @@ class SecurityAndRateLimitMiddleware(BaseHTTPMiddleware):
                         content={"detail": "Rate limit exceeded. Please try again later."},
                     )
             except Exception as e:
-                logger.error(f"Redis rate limiter check failed: {str(e)}")
+                logger.error(f"Redis rate limiter check failed: {e!s}")
 
         response = await call_next(request)
 

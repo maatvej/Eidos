@@ -7,6 +7,7 @@ Runs the Eidos AI platform locally without needing Docker or Redis.
 import os
 import shutil
 
+
 # Set Django Settings Module for local run
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.core.django_settings")
 

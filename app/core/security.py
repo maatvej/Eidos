@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from app.core.django_settings import SECRET_KEY
 
+
 ALGORITHM = "HS256"
 JWT_EXPIRATION_MINUTES = 60 * 24  # 24 Hours
 

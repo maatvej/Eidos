@@ -34,7 +34,7 @@ class FFmpegAudioProcessor:
         logger.info(f"Executing FFmpeg command: {' '.join(cmd)}")
 
         def _run_ffmpeg() -> tuple[int, str]:
-            res = subprocess.run(cmd, capture_output=True, text=True)
+            res = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
             return res.returncode, res.stderr
 
         # Run synchronously in thread pool for Windows & Linux compatibility

@@ -6,6 +6,7 @@ from uuid import UUID
 
 from asgiref.sync import sync_to_async
 
+from app.core.logging import logger
 from app.db.models import Transcription, TranscriptionJob
 from app.domain.entities import JobStatus, TranscriptionJobEntity, TranscriptionResult
 from app.domain.exceptions import JobNotFoundError
@@ -103,6 +104,6 @@ class JobRepository:
                     )
             await sync_to_async(trans_model.save)()
         except Transcription.DoesNotExist:
-            pass
-        except Exception:
-            pass
+            logger.debug(f"Transcription record {job_id} does not exist for sync.")
+        except Exception as err:
+            logger.warning(f"Error syncing user transcription record {job_id}: {err}")

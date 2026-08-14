@@ -106,7 +106,7 @@ async def test_check_django_permission_and_group(test_user) -> None:
         normal_user.groups.add(group)
         return normal_user, group
 
-    normal_user, group = await sync_to_async(setup_normal_user)()
+    normal_user, _group = await sync_to_async(setup_normal_user)()
 
     # Superuser check
     assert await _check_django_permission(test_user, "any.permission") is True
@@ -136,7 +136,7 @@ async def test_get_user_metadata(test_user) -> None:
 
     await sync_to_async(add_user_to_group)()
 
-    groups, permissions = await _get_user_metadata(test_user)
+    groups, _permissions = await _get_user_metadata(test_user)
     assert "Editors" in groups
 
 

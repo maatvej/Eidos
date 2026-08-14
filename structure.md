@@ -77,7 +77,8 @@ project_root/
 ├── .github/
 │   └── workflows/
 │       └── deploy.yml                # GitHub Actions pipeline (Ruff, MyPy, Pytest, Docker, K8s)
-├── Dockerfile                        # Multi-stage CUDA 12.1 runtime Docker image
+├── Dockerfile                        # Multi-stage CUDA 12.1 + uv runtime Docker image
+├── uv.lock                           # Deterministic dependency lockfile
 └── pyproject.toml                    # Tooling config (Ruff, MyPy, Pytest) & Python dependencies
 ```
 
@@ -151,14 +152,14 @@ With all architectural components, zero-dependency local options, and enterprise
 
 1. **Instant Zero-Dependency Execution:** Test the complete system locally without Docker or Redis:
    ```bash
-   python run_local.py
+   uv run python run_local.py
    ```
    Open `http://127.0.0.1:8000/static/index.html` to test file dropzone ingestion, live WebSockets streaming, inline editing, and PDF/DOCX/SRT exports.
 2. **Execute Automated Pytest Suite:** Run test coverage and lint checks:
    ```bash
-   ruff check app tests
-   mypy --strict app
-   pytest --cov=app tests/
+   uv run ruff check app tests
+   uv run mypy --strict app
+   uv run pytest --cov=app tests/
    ```
 
 ### Phase 2: Staging Deployment & Performance Profiling

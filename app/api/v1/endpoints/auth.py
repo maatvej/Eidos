@@ -14,6 +14,7 @@ from app.core.security import (
     get_current_django_user,
 )
 
+
 router = APIRouter(prefix="/auth", tags=["Authentication & User Management"])
 
 

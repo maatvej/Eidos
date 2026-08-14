@@ -13,6 +13,7 @@ from app.core.logging import logger
 from app.domain.entities import ActionItem, ConversationAnalysis
 from app.domain.exceptions import LLMServiceError
 
+
 RU_STOP_WORDS: set[str] = {
     "и",
     "в",
@@ -399,7 +400,7 @@ class LocalDynamicSummarizer:
 
         if pos_count > neg_count:
             return "POSITIVE"
-        elif neg_count > pos_count:
+        if neg_count > pos_count:
             return "NEGATIVE"
         return "NEUTRAL"
 

@@ -14,6 +14,7 @@ from app.ml.inference_engine import InferenceEngine
 from app.ml.llm_processor import LLMIntelligenceEngine
 from app.repository.job_repository import JobRepository
 
+
 # Global model instance within worker process lifecycle
 inference_engine = InferenceEngine()
 

@@ -128,8 +128,9 @@ $t_{\mathit{mid}}$ & \textit{word\_mid} & \texttt{float} & Temporal midpoint tim
 
 ## 5.1 System-Level Infrastructure Dependencies
 1. **FFmpeg (`>= 5.0`)**: Required for audio stream probing, downmixing, resampling, and VAD frame extraction.
-2. **NVIDIA CUDA Toolkit (`12.1`) and cuDNN (`>= 8.9`)**: Required for GPU acceleration across Faster-Whisper (CTranslate2) and PyAnnote (PyTorch).
-3. **Redis (`>= 7.0`)**: Message broker for Arq task queues and state storage for rate-limiting counters.
+2. **uv (`>= 0.5.0`)**: High-performance Python package manager and build tool.
+3. **NVIDIA CUDA Toolkit (`12.1`) and cuDNN (`>= 8.9`)**: Required for GPU acceleration across Faster-Whisper (CTranslate2) and PyAnnote (PyTorch).
+4. **Redis (`>= 7.0`)**: Message broker for Arq task queues and state storage for rate-limiting counters.
 
 ## 5.2 Multi-Stage Docker Build Architecture (`Dockerfile`)
 
@@ -139,27 +140,40 @@ FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-venv \
-    python3-pip \
     ffmpeg \
     libsndfile1 \
     curl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
+# Install uv binary
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 WORKDIR /app
 
 # Stage 2: Dependencies Builder
 FROM base AS builder
-COPY pyproject.toml .
-RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN python -m pip install --no-cache-dir .
+
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-install-project --no-dev
+
+COPY app app
+COPY README.md ./
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Stage 3: Production Execution Image
 FROM base AS runner
@@ -167,17 +181,18 @@ FROM base AS runner
 RUN useradd -m -u 1001 appuser
 WORKDIR /app
 
-COPY --from=builder /usr/local/lib/python3.11/dist-packages /usr/local/lib/python3.11/dist-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-COPY app app
-COPY static static
-COPY alembic alembic
-COPY alembic.ini .
-COPY run_local.py .
+COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
+COPY --chown=appuser:appuser app app
+COPY --chown=appuser:appuser static static
+COPY --chown=appuser:appuser templates templates
+COPY --chown=appuser:appuser django_static django_static
+COPY --chown=appuser:appuser alembic alembic
+COPY --chown=appuser:appuser alembic.ini manage.py run_local.py pyproject.toml ./
 
 RUN mkdir -p /tmp/conversation_ai ./local_storage && \
     chown -R appuser:appuser /tmp/conversation_ai ./local_storage /app
+
+ENV PATH="/app/.venv/bin:$PATH"
 
 USER appuser
 EXPOSE 8000
@@ -196,16 +211,14 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--worker
 Developers can launch the platform locally without Docker, Redis, or external PostgreSQL databases:
 
 ```bash
-# 1. Initialize Python 3.11 virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
+# 1. Synchronize locked dependencies and virtual environment
+uv sync
 
-# 2. Install dependencies
-pip install --upgrade pip
-pip install -e .[dev]
+# 2. Build distribution packages (optional)
+uv build
 
 # 3. Launch single-command zero-dependency development engine
-python run_local.py
+uv run python run_local.py
 ```
 The launcher auto-detects system dependencies, initializes local SQLite tables (`sqlite+aiosqlite:///./dev\_app.db`), sets up storage paths, and starts Uvicorn with hot-reloading at `http://127.0.0.1:8000`.
 
@@ -213,16 +226,16 @@ The launcher auto-detects system dependencies, initializes local SQLite tables (
 
 ```bash
 # Execute static type checking (Strict MyPy)
-mypy --strict app
+uv run mypy --strict app
 
 # Execute Ruff linting & formatting checks
-ruff check app tests
+uv run ruff check app tests
 
 # Run Database Schema Migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Run Pytest suite with coverage analysis
-pytest --cov=app --cov-report=term-missing tests/
+uv run pytest --cov=app --cov-report=term-missing tests/
 ```
 
 ## 6.3 Production Kubernetes Deployment

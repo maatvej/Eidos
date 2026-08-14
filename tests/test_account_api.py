@@ -73,7 +73,7 @@ async def test_transcription_history_pagination_and_search(client: AsyncClient, 
     await sync_to_async(Transcription.objects.filter(user_id=test_user.pk).delete)()
 
     # Create test transcriptions in DB
-    t1 = await sync_to_async(Transcription.objects.create)(
+    await sync_to_async(Transcription.objects.create)(
         user_id=test_user.pk,
         title="Еженедельный созвон команды",
         original_filename="weekly_call.mp3",
@@ -81,7 +81,7 @@ async def test_transcription_history_pagination_and_search(client: AsyncClient, 
         status="completed",
         transcription_text="Привет всем коллегам.",
     )
-    t2 = await sync_to_async(Transcription.objects.create)(
+    await sync_to_async(Transcription.objects.create)(
         user_id=test_user.pk,
         title="Стратегическое планирование 2026",
         original_filename="strategy.wav",

@@ -197,10 +197,12 @@ async def test_run_local_background_job_helper() -> None:
     from app.api.v1.endpoints.transcription import _run_local_background_job
 
     job_id_str = str(uuid4())
-    with patch("app.api.v1.endpoints.transcription.startup", new_callable=AsyncMock) as mock_start:
-        with patch(
+    with (
+        patch("app.api.v1.endpoints.transcription.startup", new_callable=AsyncMock) as mock_start,
+        patch(
             "app.api.v1.endpoints.transcription.process_transcription_job", new_callable=AsyncMock
-        ) as mock_proc:
-            await _run_local_background_job(job_id_str)
-            mock_start.assert_called_once()
-            mock_proc.assert_called_once()
+        ) as mock_proc,
+    ):
+        await _run_local_background_job(job_id_str)
+        mock_start.assert_called_once()
+        mock_proc.assert_called_once()

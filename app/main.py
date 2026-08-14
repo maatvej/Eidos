@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 import django
 
+
 # Ensure Django settings are configured whenever FastAPI is initialized
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.core.django_settings")
 django.setup()
@@ -43,8 +44,8 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
     if exc.status_code == status.HTTP_401_UNAUTHORIZED:
         # Avoid redirecting REST API calls or static resource requests
         path = request.url.path
-        is_api = path.startswith(settings.API_V1_STR) or path.startswith("/api/")
-        is_static = path.startswith("/static") or path.startswith("/django-static")
+        is_api = path.startswith((settings.API_V1_STR, "/api/"))
+        is_static = path.startswith(("/static", "/django-static"))
         if not is_api and not is_static:
             next_url = path
             if request.url.query:
@@ -105,11 +106,7 @@ async def spa_catch_all(
 ) -> FileResponse:
     """Catch-all fallback route serving index.html for client-side routing while protecting APIs."""
     if (
-        full_path.startswith("api/")
-        or full_path.startswith("static/")
-        or full_path.startswith("django-static/")
-        or full_path.startswith("admin/")
-        or full_path.startswith("accounts/")
+        full_path.startswith(("api/", "static/", "django-static/", "admin/", "accounts/"))
         or full_path == "health"
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")

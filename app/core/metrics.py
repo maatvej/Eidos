@@ -3,6 +3,7 @@
 
 from prometheus_client import Counter, Gauge, Histogram
 
+
 INFERENCE_LATENCY = Histogram(
     "ml_inference_latency_seconds",
     "Latency of ML inference steps in seconds",

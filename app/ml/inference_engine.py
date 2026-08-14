@@ -130,15 +130,15 @@ class InferenceEngine:
         extracted_words: list[WordTimestamp] = []
         for segment in segments:
             if segment.words:
-                for w in segment.words:
-                    extracted_words.append(
-                        WordTimestamp(
-                            word=w.word.strip(),
-                            start=round(w.start, 2),
-                            end=round(w.end, 2),
-                            probability=round(w.probability, 2),
-                        )
+                extracted_words.extend(
+                    WordTimestamp(
+                        word=w.word.strip(),
+                        start=round(w.start, 2),
+                        end=round(w.end, 2),
+                        probability=round(w.probability, 2),
                     )
+                    for w in segment.words
+                )
         return extracted_words, info.language, info.duration
 
     def _run_diarization(

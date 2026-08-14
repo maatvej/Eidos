@@ -8,6 +8,7 @@ import django
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "app.core.django_settings")
 django.setup()
 

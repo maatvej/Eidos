@@ -14,6 +14,7 @@ from app.db.session import AsyncSessionLocal
 from app.domain.entities import JobStatus
 from app.repository.job_repository import JobRepository
 
+
 router = APIRouter(prefix="/events", tags=["Real-Time Progress Events"])
 
 
