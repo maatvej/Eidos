@@ -674,42 +674,47 @@ export class TranscriptPlayer extends HTMLElement {
           position: fixed;
           top: 0;
           left: 0;
+          right: 0;
+          bottom: 0;
           width: 100vw;
           height: 100vh;
-          background: rgba(0, 0, 0, 0.7);
+          background: rgba(3, 7, 18, 0.78);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 9999;
+          z-index: 99999;
           opacity: 0;
           visibility: hidden;
-          transition: opacity 0.2s ease, visibility 0.2s ease;
-          padding: 16px;
+          pointer-events: none;
+          transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 20px;
           box-sizing: border-box;
         }
 
         .modal-overlay.open {
           opacity: 1;
           visibility: visible;
+          pointer-events: auto;
         }
 
         .modal-card {
           background: var(--bg-surface-elevated, #1e293b);
-          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.16));
           border-radius: var(--radius-lg, 18px);
-          padding: 24px;
+          padding: 26px;
           width: 100%;
-          max-width: 440px;
-          box-shadow: var(--shadow-lg, 0 20px 45px rgba(0, 0, 0, 0.6));
-          transform: scale(0.95);
+          max-width: 450px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+          transform: scale(0.96) translateY(8px);
           transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
           color: var(--text-primary, #f8fafc);
+          box-sizing: border-box;
         }
 
         .modal-overlay.open .modal-card {
-          transform: scale(1);
+          transform: scale(1) translateY(0);
         }
 
         .modal-header {
@@ -925,6 +930,8 @@ export class TranscriptPlayer extends HTMLElement {
       <div class="player-card">
         ${this.renderStateContent(state)}
       </div>
+
+      ${this.renderSpeakerRenameModal()}
     `;
 
     this.attachEventListeners(state);
@@ -1080,12 +1087,22 @@ export class TranscriptPlayer extends HTMLElement {
       <div class="transcript-container">
         ${utterances.map((utt) => this.renderUtterance(utt, state.currentTime)).join("")}
       </div>
+    `;
+  }
 
+  renderSpeakerRenameModal() {
+    return `
       <!-- Speaker Rename Modal Dialog -->
       <div class="modal-overlay" id="speakerRenameModalOverlay" role="dialog" aria-modal="true" aria-labelledby="speakerModalTitle">
         <div class="modal-card">
           <div class="modal-header">
-            <h3 class="modal-title" id="speakerModalTitle">Переименовать спикера</h3>
+            <h3 class="modal-title" id="speakerModalTitle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:-3px; margin-right:6px; color:var(--primary, #6366f1);">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              Переименовать спикера
+            </h3>
             <button class="modal-close-btn" id="closeSpeakerModalBtn" aria-label="Закрыть">✕</button>
           </div>
           <p class="modal-desc">
