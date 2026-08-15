@@ -11,6 +11,7 @@ import cProfile
 import io
 import pstats
 import re
+import sys
 import time
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
@@ -182,8 +183,8 @@ def format_pstats_summary(
     """
     stream = io.StringIO()
     # Temporarily redirect output stream
-    orig_stream = stats.stream
-    stats.stream = stream
+    orig_stream = getattr(stats, "stream", sys.stdout)
+    stats.stream = stream  # type: ignore[attr-defined]
     stats.strip_dirs()
 
     valid_sorts = {
@@ -201,7 +202,7 @@ def format_pstats_summary(
     stats.print_stats(limit)
 
     output = stream.getvalue()
-    stats.stream = orig_stream
+    stats.stream = orig_stream  # type: ignore[attr-defined]
     return output
 
 
