@@ -98,28 +98,12 @@ const getInitialTheme = () => {
   }
 };
 
-// Global Application Reactive Store Instance
-export const globalStore = new Store({
-  jobId: null,
-  status: "IDLE", // IDLE, LOADING, SUCCESS, ERROR
-  progress: 0,
-  stepMessage: "",
-  transcript: null,
-  errorMessage: null,
-  currentTime: 0.0,
-  initialAudioTime: 0.0,
-  initialSearchQuery: "",
-  currentRoute: "/",
-  currentView: "studio", // "studio" | "account"
-  theme: getInitialTheme(),
-  user: null,
-});
-
 /**
- * Session storage helpers for job and view persistence
+ * Session & Local storage helpers for job state and view persistence
  */
 export const StorageHelper = {
   ACTIVE_JOB_KEY: "eidos_active_job_id",
+  JOB_STATE_KEY: "eidos_active_job_state",
   LAST_VIEW_KEY: "eidos_last_view",
 
   saveActiveJob(jobId) {
@@ -148,8 +132,55 @@ export const StorageHelper = {
     try {
       sessionStorage.removeItem(this.ACTIVE_JOB_KEY);
       localStorage.removeItem(this.ACTIVE_JOB_KEY);
+      sessionStorage.removeItem(this.JOB_STATE_KEY);
+      localStorage.removeItem(this.JOB_STATE_KEY);
     } catch (e) {
       console.warn("[Storage] Failed to clear active job:", e);
+    }
+  },
+
+  saveJobState(state) {
+    if (!state) return;
+    try {
+      if (!state.jobId) {
+        this.clearActiveJob();
+        return;
+      }
+      const payload = {
+        jobId: state.jobId,
+        status: state.status || "IDLE",
+        progress: typeof state.progress === "number" ? state.progress : 0,
+        stepMessage: state.stepMessage || "",
+        transcript: state.transcript || null,
+        errorMessage: state.errorMessage || null,
+        currentTime: typeof state.currentTime === "number" ? state.currentTime : 0,
+        initialAudioTime: typeof state.initialAudioTime === "number" ? state.initialAudioTime : 0,
+        initialSearchQuery: state.initialSearchQuery || "",
+        savedAt: Date.now(),
+      };
+      const serialized = JSON.stringify(payload);
+      sessionStorage.setItem(this.JOB_STATE_KEY, serialized);
+      localStorage.setItem(this.JOB_STATE_KEY, serialized);
+      this.saveActiveJob(state.jobId);
+    } catch (e) {
+      console.warn("[Storage] Failed to save job state snapshot:", e);
+    }
+  },
+
+  getSavedJobState() {
+    try {
+      const raw =
+        sessionStorage.getItem(this.JOB_STATE_KEY) ||
+        localStorage.getItem(this.JOB_STATE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.jobId) {
+        return parsed;
+      }
+      return null;
+    } catch (e) {
+      console.warn("[Storage] Failed to parse saved job state:", e);
+      return null;
     }
   },
 
@@ -170,47 +201,139 @@ export const StorageHelper = {
   },
 };
 
+// Compute initial state from persistent storage if available
+const getInitialJobState = () => {
+  const saved = StorageHelper.getSavedJobState();
+  if (saved && saved.jobId) {
+    return {
+      jobId: saved.jobId,
+      status: saved.status || "IDLE",
+      progress: typeof saved.progress === "number" ? saved.progress : 0,
+      stepMessage: saved.stepMessage || "",
+      transcript: saved.transcript || null,
+      errorMessage: saved.errorMessage || null,
+      currentTime: typeof saved.currentTime === "number" ? saved.currentTime : 0.0,
+      initialAudioTime: typeof saved.initialAudioTime === "number" ? saved.initialAudioTime : 0.0,
+      initialSearchQuery: saved.initialSearchQuery || "",
+    };
+  }
+
+  const activeJobId = StorageHelper.getActiveJob();
+  if (activeJobId) {
+    return {
+      jobId: activeJobId,
+      status: "LOADING",
+      progress: 10,
+      stepMessage: "Восстановление состояния...",
+      transcript: null,
+      errorMessage: null,
+      currentTime: 0.0,
+      initialAudioTime: 0.0,
+      initialSearchQuery: "",
+    };
+  }
+
+  return {
+    jobId: null,
+    status: "IDLE",
+    progress: 0,
+    stepMessage: "",
+    transcript: null,
+    errorMessage: null,
+    currentTime: 0.0,
+    initialAudioTime: 0.0,
+    initialSearchQuery: "",
+  };
+};
+
+const initialJobState = getInitialJobState();
+
+// Global Application Reactive Store Instance
+export const globalStore = new Store({
+  ...initialJobState,
+  currentRoute: typeof window !== "undefined" ? window.location.pathname || "/" : "/",
+  currentView: StorageHelper.getLastView(),
+  theme: getInitialTheme(),
+  user: null,
+});
+
+// Automatically synchronize state changes to persistent storage
+globalStore.subscribe(
+  (state) => {
+    if (state.jobId) {
+      StorageHelper.saveJobState(state);
+    } else if (state.status === "IDLE") {
+      StorageHelper.clearActiveJob();
+    }
+  },
+  ["jobId", "status", "progress", "stepMessage", "transcript", "errorMessage", "currentTime"]
+);
+
 /**
  * Asynchronously hydrates job data from the backend into the global reactive store.
  * Supports fallback to account transcription records for persistent historical links.
  *
  * @param {string} jobId - Unique UUID of the job or transcription
- * @param {Object} [options] - Optional initial params (seekTime, searchQuery)
+ * @param {Object} [options] - Optional initial params (seekTime, searchQuery, forceReload)
  * @returns {Promise<boolean>} True if hydrated successfully, false otherwise
  */
 export async function hydrateJob(jobId, options = {}) {
   if (!jobId) return false;
 
-  const seekTime = options.seekTime !== undefined ? parseFloat(options.seekTime) || 0 : 0;
-  const searchQuery = options.searchQuery || "";
+  const seekTime = options.seekTime !== undefined ? parseFloat(options.seekTime) || 0 : null;
+  const searchQuery = options.searchQuery !== undefined ? options.searchQuery : null;
+  const forceReload = options.forceReload === true;
 
   StorageHelper.saveActiveJob(jobId);
 
-  // If already loaded with the same jobId and completed, just update seek & search
-  if (
-    globalStore.state.jobId === jobId &&
-    globalStore.state.status === "SUCCESS" &&
-    globalStore.state.transcript
-  ) {
-    globalStore.setState({
-      currentTime: seekTime,
-      initialAudioTime: seekTime,
-      initialSearchQuery: searchQuery,
-    });
+  const current = globalStore.state;
+  const isSameJob = current.jobId === jobId;
+
+  // If already loaded and SUCCESS with transcript, just update seek & search unless forceReload is set
+  if (isSameJob && current.status === "SUCCESS" && current.transcript && !forceReload) {
+    const updates = {};
+    if (seekTime !== null) {
+      updates.currentTime = seekTime;
+      updates.initialAudioTime = seekTime;
+    }
+    if (searchQuery !== null) {
+      updates.initialSearchQuery = searchQuery;
+    }
+    if (Object.keys(updates).length > 0) {
+      globalStore.setState(updates);
+    }
     return true;
   }
 
-  globalStore.setState({
+  // Non-destructive initial state setup
+  const updatePayload = {
     jobId,
-    status: "LOADING",
-    progress: 10,
-    stepMessage: "Восстановление состояния и данных расшифровки...",
     errorMessage: null,
-    transcript: null,
-    currentTime: seekTime,
-    initialAudioTime: seekTime,
-    initialSearchQuery: searchQuery,
-  });
+  };
+
+  if (seekTime !== null) {
+    updatePayload.currentTime = seekTime;
+    updatePayload.initialAudioTime = seekTime;
+  }
+  if (searchQuery !== null) {
+    updatePayload.initialSearchQuery = searchQuery;
+  }
+
+  if (isSameJob && current.transcript) {
+    // Retain existing transcript while re-validating
+    updatePayload.status = current.status || "LOADING";
+    updatePayload.progress = typeof current.progress === "number" ? current.progress : 10;
+    updatePayload.stepMessage = current.stepMessage || "Синхронизация с сервером...";
+  } else {
+    updatePayload.status = "LOADING";
+    updatePayload.progress = isSameJob && typeof current.progress === "number" && current.progress > 0 ? current.progress : 10;
+    updatePayload.stepMessage = isSameJob && current.stepMessage ? current.stepMessage : "Восстановление состояния и данных расшифровки...";
+    if (!isSameJob) {
+      updatePayload.transcript = null;
+    }
+  }
+
+  globalStore.setState(updatePayload);
 
   try {
     // 1. First attempt: fetch from active transcription jobs endpoint
@@ -237,6 +360,16 @@ export async function hydrateJob(jobId, options = {}) {
           status: "ERROR",
           progress: 0,
           errorMessage: jobData.error_message || "Ошибка при выполнении расшифровки.",
+        });
+        return false;
+      }
+
+      if (statusLower === "cancelled") {
+        globalStore.setState({
+          jobId,
+          status: "ERROR",
+          progress: 0,
+          errorMessage: "Обработка задачи была отменена.",
         });
         return false;
       }
@@ -323,6 +456,11 @@ export async function hydrateJob(jobId, options = {}) {
       return true;
     }
 
+    // If endpoints returned not found, but we already have valid restored transcript, keep it
+    if (isSameJob && globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+      return true;
+    }
+
     // Not found
     globalStore.setState({
       jobId,
@@ -332,6 +470,9 @@ export async function hydrateJob(jobId, options = {}) {
     return false;
   } catch (err) {
     console.error("[Hydration] Error hydrating job:", err);
+    if (isSameJob && globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+      return true;
+    }
     globalStore.setState({
       jobId,
       status: "ERROR",

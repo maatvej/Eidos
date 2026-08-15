@@ -10,7 +10,7 @@
  * - Optimistic deletion confirmation modal with Escape key accessibility
  */
 
-import { globalStore, showToast } from "../store.js";
+import { globalStore, showToast, StorageHelper } from "../store.js";
 import { router } from "../router.js";
 
 export class AccountManagement extends HTMLElement {
@@ -1078,6 +1078,22 @@ export class AccountManagement extends HTMLElement {
         showToast("Запись транскрипции успешно удалена", "success");
         this.transcriptions = this.transcriptions.filter((t) => t.id !== id);
         this.loadTranscriptions();
+
+        // If the deleted record was the currently active job, clear state
+        if (globalStore.state.jobId === id) {
+          StorageHelper.clearActiveJob();
+          globalStore.setState({
+            jobId: null,
+            status: "IDLE",
+            progress: 0,
+            stepMessage: "",
+            transcript: null,
+            errorMessage: null,
+            currentTime: 0,
+            initialAudioTime: 0,
+            initialSearchQuery: "",
+          });
+        }
       } else {
         showToast("Ошибка при удалении транскрипции", "error");
       }

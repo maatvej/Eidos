@@ -170,17 +170,38 @@ globalStore.subscribe((state) => {
 // Configure Client-Side Routes
 router
   // Main Studio & Dashboard Routes
-  .addRoute("/", (context) => {
+  .addRoute("/", async (context) => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/" });
+    const activeJob = StorageHelper.getActiveJob();
+    if (activeJob) {
+      await hydrateJob(activeJob, {
+        seekTime: context.query.t,
+        searchQuery: context.query.q,
+      });
+    }
   })
-  .addRoute("/studio", (context) => {
+  .addRoute("/studio", async (context) => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/studio" });
+    const activeJob = StorageHelper.getActiveJob();
+    if (activeJob) {
+      await hydrateJob(activeJob, {
+        seekTime: context.query.t,
+        searchQuery: context.query.q,
+      });
+    }
   })
-  .addRoute("/dashboard", (context) => {
+  .addRoute("/dashboard", async (context) => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/dashboard" });
+    const activeJob = StorageHelper.getActiveJob();
+    if (activeJob) {
+      await hydrateJob(activeJob, {
+        seekTime: context.query.t,
+        searchQuery: context.query.q,
+      });
+    }
   })
 
   // Deep Links to Specific Job / Transcription
