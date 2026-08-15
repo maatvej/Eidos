@@ -77,5 +77,35 @@ class TranscriptionJob(models.Model):
         return f"{self.filename} ({self.status})"
 
 
+class VoiceProfile(models.Model):
+    """Django ORM model representing saved speaker voice profiles with acoustic embeddings."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="voice_profiles",
+        db_index=True,
+    )
+    name = models.CharField(max_length=255, db_index=True)
+    embedding = models.JSONField(default=list)
+    samples_count = models.IntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "voice_profiles"
+        verbose_name = "Voice Profile"
+        verbose_name_plural = "Voice Profiles"
+        ordering = ["-updated_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "name"], name="unique_user_voice_profile_name")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.name} (user_id={self.user_id})"
+
+
 # Model aliases for multi-ORM compatibility
 TranscriptionJobModel = TranscriptionJob
+VoiceProfileModel = VoiceProfile

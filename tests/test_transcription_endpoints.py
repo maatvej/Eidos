@@ -191,7 +191,7 @@ async def test_bulk_rename_speaker_success_json_and_query(client: AsyncClient, t
     """Validates successful bulk speaker renaming with JSON payload and query params with ORM sync."""
     from asgiref.sync import sync_to_async
 
-    from app.db.models import Transcription, TranscriptionStatus
+    from app.db.models import Transcription, TranscriptionStatus, VoiceProfile
 
     job_id = uuid4()
     job = TranscriptionJobEntity(
@@ -249,6 +249,53 @@ async def test_bulk_rename_speaker_success_json_and_query(client: AsyncClient, t
 
     updated_trans2 = await sync_to_async(Transcription.objects.get)(id=job_id)
     assert "Bob: Welcome!" in updated_trans2.transcription_text
+
+    # Verify voice memory profiles persisted in DB
+    alice_profile = await sync_to_async(
+        VoiceProfile.objects.filter(user=test_user, name="Alice").first
+    )()
+    assert alice_profile is not None
+    assert len(alice_profile.embedding) > 0
+
+    bob_profile = await sync_to_async(
+        VoiceProfile.objects.filter(user=test_user, name="Bob").first
+    )()
+    assert bob_profile is not None
+
+
+@pytest.mark.asyncio
+async def test_bulk_rename_speaker_profile_save_exception(client: AsyncClient) -> None:
+    """Validates speaker rename succeeds even if voice profile persistence encounters exception."""
+    job_id = uuid4()
+    job = TranscriptionJobEntity(
+        id=job_id,
+        filename="meeting_err.wav",
+        file_path="/tmp/meeting_err.wav",
+        status=JobStatus.COMPLETED,
+        result=TranscriptionResult(
+            utterances=[
+                Utterance(speaker="SPEAKER_00", start=0.0, end=1.0, text="Hello"),
+            ],
+            duration_seconds=1.0,
+            speaker_embeddings={"SPEAKER_00": [0.1] * 32},
+        ),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    repo = JobRepository()
+    await repo.create(job)
+
+    with patch(
+        "app.repository.job_repository.VoiceProfileRepository.save_or_update_voice_profile",
+        side_effect=RuntimeError("Database lock error"),
+    ):
+        resp = await client.post(
+            f"/api/v1/transcription/jobs/{job_id}/speaker-rename",
+            json={"old_speaker_label": "SPEAKER_00", "new_speaker_name": "Alice"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["result"]["utterances"][0]["speaker"] == "Alice"
 
 
 @pytest.mark.asyncio

@@ -3,7 +3,7 @@
 
 from django.contrib import admin
 
-from app.db.models import Transcription, TranscriptionJob
+from app.db.models import Transcription, TranscriptionJob, VoiceProfile
 
 
 @admin.register(TranscriptionJob)
@@ -37,4 +37,21 @@ class TranscriptionAdmin(admin.ModelAdmin):
     )
     list_filter = ("status", "created_at", "language")
     search_fields = ("id", "title", "original_filename", "user__username", "user__email")
+    readonly_fields = ("id", "created_at", "updated_at")
+
+
+@admin.register(VoiceProfile)
+class VoiceProfileAdmin(admin.ModelAdmin):
+    """Admin configuration for VoiceProfile ORM model."""
+
+    list_display = (
+        "id",
+        "name",
+        "user",
+        "samples_count",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("created_at", "updated_at")
+    search_fields = ("id", "name", "user__username", "user__email")
     readonly_fields = ("id", "created_at", "updated_at")

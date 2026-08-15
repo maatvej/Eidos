@@ -1,7 +1,7 @@
 # filename: app/domain/entities.py
 """Domain entities representing core business models and transcription schema."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from uuid import UUID, uuid4
 
@@ -66,12 +66,28 @@ class ConversationAnalysis(BaseModel):
 
 
 class TranscriptionResult(BaseModel):
-    """Complete transcript representation containing utterances and extracted intelligence."""
+    """Complete transcript representation containing utterances, extracted intelligence, and speaker voice embeddings."""
 
     utterances: list[Utterance] = Field(default_factory=list)
     analysis: ConversationAnalysis | None = None
     duration_seconds: float = Field(ge=0.0, default=0.0)
     detected_language: str = "en"
+    speaker_embeddings: dict[str, list[float]] = Field(
+        default_factory=dict,
+        description="Acoustic voice embedding vectors keyed by speaker label/name",
+    )
+
+
+class VoiceProfileEntity(BaseModel):
+    """Domain entity representing a persisted user voice profile."""
+
+    id: UUID = Field(default_factory=uuid4)
+    user_id: int
+    name: str
+    embedding: list[float] = Field(default_factory=list)
+    samples_count: int = Field(default=1, ge=1)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class JobProgress(BaseModel):

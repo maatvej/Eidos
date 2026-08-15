@@ -5,15 +5,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from asgiref.sync import sync_to_async
+
 from app.core.logging import logger
 from app.core.metrics import ACTIVE_JOBS, PROCESSED_AUDIO_SECONDS
 from app.core.profiler import profile_worker_task
+from app.db.models import Transcription
 from app.db.session import AsyncSessionLocal
-from app.domain.entities import JobStatus
+from app.domain.entities import JobStatus, VoiceProfileEntity
 from app.ml.audio_processor import FFmpegAudioProcessor
 from app.ml.inference_engine import InferenceEngine
 from app.ml.llm_processor import LLMIntelligenceEngine
-from app.repository.job_repository import JobRepository
+from app.repository.job_repository import JobRepository, VoiceProfileRepository
 
 
 # Global model instance within worker process lifecycle
@@ -38,9 +41,22 @@ async def process_transcription_job(ctx: dict, job_id_str: str) -> None:
     ACTIVE_JOBS.labels(status="processing").inc()
     async with AsyncSessionLocal() as session:
         repo = JobRepository(session)
+        voice_repo = VoiceProfileRepository(session)
         job = await repo.get_by_id(job_id)
 
         try:
+            # Retrieve associated user voice profiles from DB memory
+            user_profiles: list[VoiceProfileEntity] = []
+            try:
+                trans_record = await sync_to_async(Transcription.objects.get)(id=job_id)
+                if trans_record and trans_record.user_id:
+                    user_profiles = await voice_repo.get_user_voice_profiles(trans_record.user_id)
+                    logger.info(
+                        f"Loaded {len(user_profiles)} saved voice profiles for user {trans_record.user_id}."
+                    )
+            except Exception as user_fetch_err:
+                logger.debug(f"User voice profile lookup skipped ({user_fetch_err}).")
+
             # 1. Preprocessing
             await repo.update_progress(
                 job_id, JobStatus.PREPROCESSING, 15.0, "Нормализация аудио и VAD"
@@ -53,14 +69,16 @@ async def process_transcription_job(ctx: dict, job_id_str: str) -> None:
                 logger.warning(f"FFmpeg normalization skipped ({ffmpeg_err}). Using raw file.")
                 audio_to_process = Path(job.file_path)
 
-            # 2. Speech Recognition & Diarization
+            # 2. Speech Recognition & Diarization with Voice Memory Matching
             await repo.update_progress(
                 job_id,
                 JobStatus.TRANSCRIBING,
                 45.0,
                 "Распознавание речи и диаризация спикеров",
             )
-            transcription_result = await inference_engine.process_audio(audio_to_process)
+            transcription_result = await inference_engine.process_audio(
+                audio_to_process, voice_profiles=user_profiles
+            )
 
             # 3. LLM Post-processing
             await repo.update_progress(

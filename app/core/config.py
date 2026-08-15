@@ -57,6 +57,8 @@ class Settings(BaseSettings):
     PYANNOTE_AUTH_TOKEN: str = "hf_dummy_token"
     DIARIZATION_MIN_SPEAKERS: int | None = None
     DIARIZATION_MAX_SPEAKERS: int | None = None
+    VOICE_SIMILARITY_THRESHOLD: float = 0.75
+    VOICE_EMBEDDING_DIM: int = 32
 
     # LLM & Conversation Intelligence Settings
     LLM_API_KEY: str = "mock-key"

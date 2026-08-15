@@ -12,7 +12,12 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.core.metrics import INFERENCE_LATENCY
 from app.core.profiler import profile_async, profile_sync
-from app.domain.entities import TranscriptionResult, Utterance, WordTimestamp
+from app.domain.entities import (
+    TranscriptionResult,
+    Utterance,
+    VoiceProfileEntity,
+    WordTimestamp,
+)
 
 
 class InferenceEngine:
@@ -113,8 +118,25 @@ class InferenceEngine:
             self.diarization_pipeline = None
 
     @profile_async(name="speech_transcription_and_diarization", subfolder="ml_inference")
-    async def process_audio(self, audio_path: Path) -> TranscriptionResult:
-        """Runs speech recognition and speaker diarization with precise alignment."""
+    async def process_audio(
+        self,
+        audio_path: Path,
+        voice_profiles: list[VoiceProfileEntity] | None = None,
+    ) -> TranscriptionResult:
+        """Runs speech recognition, speaker diarization, voice embedding extraction, and voice profile matching.
+
+        Args:
+            audio_path: Path to the target audio file on disk.
+            voice_profiles: Optional list of saved user voice profiles to identify known speakers.
+
+        Returns:
+            TranscriptionResult populated with aligned utterances, detected language, duration,
+            and extracted speaker voice embeddings.
+
+        Example:
+            >>> result = await engine.process_audio(Path("audio.wav"), voice_profiles=[profile])
+            >>> print(result.utterances[0].speaker)
+        """
         start_time = time.perf_counter()
 
         # 1. Run high-quality transcription off main thread
@@ -125,7 +147,21 @@ class InferenceEngine:
         # 2. Run speaker diarization (PyAnnote or acoustic feature clustering) off main thread
         speaker_turns = await asyncio.to_thread(self._run_diarization, audio_path, words_with_time)
 
-        # 3. Align word timestamps with speaker turns using maximum temporal overlap
+        # 3. Extract speaker voice embeddings
+        speaker_embeddings = await asyncio.to_thread(
+            self.extract_all_speaker_embeddings, audio_path, speaker_turns
+        )
+
+        # 4. Match against saved voice profiles in model memory if provided
+        if voice_profiles:
+            speaker_turns, speaker_embeddings = self.match_speakers_with_voice_memory(
+                speaker_turns=speaker_turns,
+                speaker_embeddings=speaker_embeddings,
+                voice_profiles=voice_profiles,
+                threshold=settings.VOICE_SIMILARITY_THRESHOLD,
+            )
+
+        # 5. Align word timestamps with speaker turns using maximum temporal overlap
         aligned_utterances = self._align_words_with_speakers(words_with_time, speaker_turns)
 
         elapsed = time.perf_counter() - start_time
@@ -135,7 +171,379 @@ class InferenceEngine:
             utterances=aligned_utterances,
             duration_seconds=duration,
             detected_language=detected_lang,
+            speaker_embeddings=speaker_embeddings,
         )
+
+    @staticmethod
+    def compute_voice_similarity(emb1: list[float], emb2: list[float]) -> float:
+        """Computes cosine similarity between two normalized voice embedding vectors.
+
+        Args:
+            emb1: First voice feature embedding vector.
+            emb2: Second voice feature embedding vector.
+
+        Returns:
+            Cosine similarity score in the range [-1.0, 1.0].
+
+        Example:
+            >>> sim = InferenceEngine.compute_voice_similarity([1.0, 0.0], [1.0, 0.0])
+            >>> round(sim, 2)
+            1.0
+        """
+        if not emb1 or not emb2 or len(emb1) != len(emb2):
+            return 0.0
+
+        import numpy as np
+
+        v1 = np.array(emb1, dtype=np.float32)
+        v2 = np.array(emb2, dtype=np.float32)
+
+        norm1 = float(np.linalg.norm(v1))
+        norm2 = float(np.linalg.norm(v2))
+
+        if norm1 <= 1e-9 or norm2 <= 1e-9:
+            return 0.0
+
+        sim = float(np.dot(v1, v2) / (norm1 * norm2))
+        return max(-1.0, min(1.0, sim))
+
+    @staticmethod
+    def update_profile_embedding(
+        existing_embedding: list[float],
+        new_embedding: list[float],
+        samples_count: int = 1,
+    ) -> list[float]:
+        """Calculates running centroid average of voice embeddings and normalizes result.
+
+        Args:
+            existing_embedding: Current stored voice embedding centroid.
+            new_embedding: Newly extracted voice embedding from current audio session.
+            samples_count: Number of previous audio samples already aggregated in profile.
+
+        Returns:
+            Updated L2-normalized voice embedding vector.
+
+        Example:
+            >>> updated = InferenceEngine.update_profile_embedding([1.0, 0.0], [0.0, 1.0], 1)
+            >>> len(updated)
+            2
+        """
+        if not existing_embedding:
+            return new_embedding
+        if not new_embedding:
+            return existing_embedding
+
+        import numpy as np
+
+        v_old = np.array(existing_embedding, dtype=np.float32)
+        v_new = np.array(new_embedding, dtype=np.float32)
+
+        # Weighted running average
+        count = max(1, samples_count)
+        v_combined = (v_old * count + v_new) / (count + 1)
+        norm = float(np.linalg.norm(v_combined))
+        if norm > 1e-9:
+            v_combined = v_combined / norm
+
+        return [float(x) for x in v_combined]
+
+    @staticmethod
+    def _extract_chunk_features(
+        chunk: Any, sr: int, target_dim: int
+    ) -> list[float]:
+        """Extracts acoustic spectral and timbre features from an isolated audio chunk.
+
+        Args:
+            chunk: Audio samples as float32 1D numpy array.
+            sr: Audio sample rate in Hz.
+            target_dim: Target feature embedding vector dimension.
+
+        Returns:
+            List of float feature values of length target_dim.
+        """
+        import numpy as np
+
+        rms = float(np.sqrt(np.mean(chunk**2)))
+        zcr = float(np.mean(np.abs(np.diff(np.signbit(chunk)))))
+
+        fft_vals = np.abs(np.fft.rfft(chunk * np.hamming(len(chunk))))
+        freqs = np.fft.rfftfreq(len(chunk), 1.0 / sr)
+        total_energy = float(np.sum(fft_vals)) or 1.0
+
+        centroid = float(np.sum(freqs * fft_vals) / total_energy) / 4000.0
+        variance = (
+            float(np.sum(((freqs - centroid * 4000.0) ** 2) * fft_vals) / total_energy)
+            / 1e6
+        )
+
+        low_f0 = float(
+            np.sum(fft_vals[np.logical_and(freqs >= 70.0, freqs < 300.0)]) / total_energy
+        )
+        f1 = float(
+            np.sum(fft_vals[np.logical_and(freqs >= 300.0, freqs < 1000.0)]) / total_energy
+        )
+        f2 = float(
+            np.sum(fft_vals[np.logical_and(freqs >= 1000.0, freqs < 2500.0)]) / total_energy
+        )
+        f3 = float(
+            np.sum(fft_vals[np.logical_and(freqs >= 2500.0, freqs < 4500.0)]) / total_energy
+        )
+        high = float(
+            np.sum(fft_vals[np.logical_and(freqs >= 4500.0, freqs < 8000.0)]) / total_energy
+        )
+
+        sub_bands: list[float] = []
+        band_edges = np.geomspace(80, min(8000, sr // 2), num=17)
+        for b_idx in range(16):
+            b_low = float(band_edges[b_idx])
+            b_high = float(band_edges[b_idx + 1])
+            mask = np.logical_and(freqs >= b_low, freqs < b_high)
+            sub_bands.append(float(np.sum(fft_vals[mask]) / total_energy))
+
+        cum_energy = np.cumsum(fft_vals)
+        roll_idx = int(np.searchsorted(cum_energy, 0.85 * total_energy))
+        roll_freq = float(freqs[min(roll_idx, len(freqs) - 1)]) / 4000.0
+        geom_mean = np.exp(np.mean(np.log(fft_vals + 1e-9)))
+        flatness = float(geom_mean / (np.mean(fft_vals) + 1e-9))
+
+        base_feat = [
+            rms,
+            zcr,
+            centroid,
+            variance,
+            low_f0,
+            f1,
+            f2,
+            f3,
+            high,
+            roll_freq,
+            flatness,
+        ]
+        feat = [*base_feat, *sub_bands]
+
+        if len(feat) < target_dim:
+            feat.extend([0.0] * (target_dim - len(feat)))
+        else:
+            feat = feat[:target_dim]
+
+        return feat
+
+    @staticmethod
+    def _heuristic_embedding_fallback(
+        segments: list[dict[str, Any]], target_dim: int
+    ) -> list[float]:
+        """Calculates deterministic normalized unit vector based on segment cadence and dynamics.
+
+        Args:
+            segments: Audio segment dictionaries.
+            target_dim: Expected output dimensionality.
+
+        Returns:
+            Normalized float feature list of length target_dim.
+        """
+        import numpy as np
+
+        total_dur = sum(max(0.1, s.get("end", 0.0) - s.get("start", 0.0)) for s in segments)
+        avg_dur = total_dur / len(segments)
+        first_start = segments[0].get("start", 0.0)
+        words_count = sum(len(s.get("words", [])) for s in segments)
+        tempo = words_count / max(0.1, total_dur)
+
+        feat_fallback = [0.0] * target_dim
+        feat_fallback[0] = float(min(1.0, total_dur / 10.0))
+        feat_fallback[1] = float(min(1.0, avg_dur / 3.0))
+        feat_fallback[2] = float((first_start % 5.0) / 5.0)
+        feat_fallback[3] = float(min(1.0, tempo / 5.0))
+        feat_fallback[4] = 0.5
+        for k in range(5, target_dim):
+            feat_fallback[k] = float(((k * 7 + int(first_start * 10)) % 100) / 100.0)
+
+        v_arr = np.array(feat_fallback, dtype=np.float32)
+        norm = float(np.linalg.norm(v_arr)) or 1.0
+        return [float(x) for x in (v_arr / norm)]
+
+    @profile_sync(name="speaker_embedding_extraction", subfolder="ml_inference")
+    def extract_speaker_embedding(
+        self, audio_path: Path, segments: list[dict[str, Any]]
+    ) -> list[float]:
+        """Extracts a fixed-dimensional normalized acoustic voice embedding for a speaker turn cluster.
+
+        Args:
+            audio_path: Path to the audio file on disk.
+            segments: Sequence of audio segments belonging to this specific speaker.
+
+        Returns:
+            Normalized 32-dimensional acoustic embedding vector.
+
+        Example:
+            >>> emb = engine.extract_speaker_embedding(Path("audio.wav"), [{"start": 0.0, "end": 2.0}])
+            >>> len(emb)
+            32
+        """
+        target_dim = settings.VOICE_EMBEDDING_DIM or 32
+        if not segments:
+            return [0.0] * target_dim
+
+        import wave
+
+        import numpy as np
+
+        collected_vectors: list[np.ndarray] = []
+
+        try:
+            with wave.open(str(audio_path), "rb") as wf:
+                sr = wf.getframerate()
+                n_channels = wf.getnchannels()
+                sampwidth = wf.getsampwidth()
+                n_frames = wf.getnframes()
+                raw_bytes = wf.readframes(n_frames)
+
+            dtype = np.int16 if sampwidth == 2 else np.int32
+            audio_data = np.frombuffer(raw_bytes, dtype=dtype).astype(np.float32)
+            if n_channels > 1:
+                audio_data = audio_data.reshape(-1, n_channels).mean(axis=1)
+
+            max_val = np.max(np.abs(audio_data)) or 1.0
+            audio_data = audio_data / max_val
+
+            for seg in segments:
+                start_frame = max(0, int(seg["start"] * sr))
+                end_frame = min(len(audio_data), int(seg["end"] * sr))
+                chunk = audio_data[start_frame:end_frame]
+                if len(chunk) < 250:
+                    continue
+
+                feat = self._extract_chunk_features(chunk, sr, target_dim)
+                collected_vectors.append(np.array(feat, dtype=np.float32))
+
+        except Exception as e:
+            logger.debug(f"Direct WAV speaker embedding skipped ({e}). Using heuristic vector.")
+
+        if not collected_vectors:
+            return self._heuristic_embedding_fallback(segments, target_dim)
+
+        mean_vec = np.mean(collected_vectors, axis=0)
+        norm = float(np.linalg.norm(mean_vec)) or 1.0
+        normalized = mean_vec / norm
+        return [float(x) for x in normalized]
+
+    @profile_sync(name="all_speaker_embeddings_extraction", subfolder="ml_inference")
+    def extract_all_speaker_embeddings(
+        self, audio_path: Path, turns: list[dict[str, Any]]
+    ) -> dict[str, list[float]]:
+        """Extracts acoustic voice embeddings for all speakers present in turns list.
+
+        Args:
+            audio_path: Path to the audio file.
+            turns: Sequence of speaker speech turn dictionaries.
+
+        Returns:
+            Dictionary mapping speaker labels to their normalized embedding vectors.
+
+        Example:
+            >>> embs = engine.extract_all_speaker_embeddings(Path("audio.wav"), turns)
+            >>> print(embs.keys())
+        """
+        from collections import defaultdict
+
+        speaker_segments: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for turn in turns:
+            spk = turn.get("speaker") or "Спикер 1"
+            speaker_segments[spk].append(turn)
+
+        speaker_embeddings: dict[str, list[float]] = {}
+        for spk, segs in speaker_segments.items():
+            speaker_embeddings[spk] = self.extract_speaker_embedding(audio_path, segs)
+
+        return speaker_embeddings
+
+    def _build_speaker_rename_map(
+        self,
+        speaker_embeddings: dict[str, list[float]],
+        voice_profiles: list[VoiceProfileEntity],
+        threshold: float,
+    ) -> dict[str, str]:
+        """Builds greedy highest-similarity mapping between speaker clusters and voice profiles.
+
+        Args:
+            speaker_embeddings: Speaker embeddings from audio.
+            voice_profiles: User voice profiles.
+            threshold: Cosine similarity threshold.
+
+        Returns:
+            Dictionary mapping original speaker label to recognized voice profile name.
+        """
+        candidates: list[tuple[float, str, str]] = []
+        for current_spk, emb in speaker_embeddings.items():
+            for profile in voice_profiles:
+                if not profile.embedding:
+                    continue
+                sim = self.compute_voice_similarity(emb, profile.embedding)
+                if sim >= threshold:
+                    candidates.append((sim, current_spk, profile.name))
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        assigned_current: set[str] = set()
+        assigned_profiles: set[str] = set()
+        rename_map: dict[str, str] = {}
+
+        for sim, curr_spk, prof_name in candidates:
+            if curr_spk in assigned_current or prof_name in assigned_profiles:
+                continue
+            rename_map[curr_spk] = prof_name
+            assigned_current.add(curr_spk)
+            assigned_profiles.add(prof_name)
+            logger.info(
+                f"Voice Memory Match: '{curr_spk}' recognized as '{prof_name}' with similarity {sim:.3f}"
+            )
+
+        return rename_map
+
+    def match_speakers_with_voice_memory(
+        self,
+        speaker_turns: list[dict[str, Any]],
+        speaker_embeddings: dict[str, list[float]],
+        voice_profiles: list[VoiceProfileEntity] | None = None,
+        threshold: float = 0.75,
+    ) -> tuple[list[dict[str, Any]], dict[str, list[float]]]:
+        """Matches extracted speaker embeddings with saved voice memory profiles and updates speaker names.
+
+        Args:
+            speaker_turns: List of speech turn dictionaries with 'speaker', 'start', 'end'.
+            speaker_embeddings: Dictionary mapping speaker labels to embedding vectors.
+            voice_profiles: Saved voice profiles from user memory.
+            threshold: Cosine similarity threshold for confident speaker recognition.
+
+        Returns:
+            Tuple of updated speaker turns and renamed speaker embeddings dictionary.
+
+        Example:
+            >>> turns, embs = engine.match_speakers_with_voice_memory(turns, embs, [profile])
+        """
+        if not voice_profiles or not speaker_embeddings:
+            return speaker_turns, speaker_embeddings
+
+        rename_map = self._build_speaker_rename_map(
+            speaker_embeddings, voice_profiles, threshold
+        )
+        if not rename_map:
+            return speaker_turns, speaker_embeddings
+
+        # Update turns
+        updated_turns: list[dict[str, Any]] = []
+        for turn in speaker_turns:
+            spk = turn.get("speaker", "Спикер 1")
+            new_spk = rename_map.get(spk, spk)
+            updated_turn = dict(turn)
+            updated_turn["speaker"] = new_spk
+            updated_turns.append(updated_turn)
+
+        # Update embeddings dictionary
+        updated_embeddings: dict[str, list[float]] = {
+            rename_map.get(spk, spk): emb for spk, emb in speaker_embeddings.items()
+        }
+
+        return updated_turns, updated_embeddings
 
     @profile_sync(name="whisper_speech_transcription", subfolder="ml_inference")
     def _run_transcription(self, audio_path: Path) -> tuple[list[WordTimestamp], str, float]:

@@ -18,7 +18,7 @@ from app.domain.entities import (
     Utterance,
 )
 from app.domain.exceptions import ExportGenerationError, JobNotFoundError
-from app.repository.job_repository import JobRepository
+from app.repository.job_repository import JobRepository, VoiceProfileRepository
 from app.services.export_service import ExportService
 
 
@@ -222,3 +222,55 @@ def test_export_service_error_handling(sample_result: TranscriptionResult) -> No
             service.to_pdf(sample_result)
         assert exc2.value.code == "EXPORT_FAILED"
         assert "PDF" in exc2.value.message
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_voice_profile_repository_lifecycle(test_user) -> None:
+    """Validates VoiceProfileRepository CRUD lifecycle, running average embedding update, and deletion."""
+    repo = VoiceProfileRepository()
+
+    # 1. Create new profile
+    emb1 = [1.0] + [0.0] * 31
+    profile = await repo.save_or_update_voice_profile(
+        user_id=test_user.pk,
+        name="Алексей Смирнов",
+        embedding=emb1,
+    )
+    assert profile.name == "Алексей Смирнов"
+    assert profile.samples_count == 1
+    assert len(profile.embedding) == 32
+
+    # 2. Retrieve by user
+    user_profiles = await repo.get_user_voice_profiles(test_user.pk)
+    assert len(user_profiles) >= 1
+    assert any(p.id == profile.id for p in user_profiles)
+
+    # 3. Retrieve by ID
+    fetched = await repo.get_voice_profile_by_id(profile.id, test_user.pk)
+    assert fetched is not None
+    assert fetched.name == "Алексей Смирнов"
+
+    # Non-existent or other user ID -> None
+    assert await repo.get_voice_profile_by_id(uuid4(), test_user.pk) is None
+    assert await repo.get_voice_profile_by_id(profile.id, 999999) is None
+
+    # 4. Update existing profile with new embedding (running centroid average)
+    emb2 = [0.0, 1.0] + [0.0] * 30
+    updated = await repo.save_or_update_voice_profile(
+        user_id=test_user.pk,
+        name="Алексей Смирнов",
+        embedding=emb2,
+    )
+    assert updated.samples_count == 2
+    # Combined vector should have non-zero in components 0 and 1
+    assert updated.embedding[0] > 0.0
+    assert updated.embedding[1] > 0.0
+
+    # 5. Delete profile
+    deleted = await repo.delete_voice_profile(profile.id, test_user.pk)
+    assert deleted is True
+    assert await repo.get_voice_profile_by_id(profile.id, test_user.pk) is None
+
+    # Delete non-existent
+    assert await repo.delete_voice_profile(uuid4(), test_user.pk) is False

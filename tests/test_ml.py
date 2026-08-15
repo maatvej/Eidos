@@ -11,7 +11,7 @@ import pytest
 import torch
 
 from app.core.config import settings
-from app.domain.entities import TranscriptionResult, WordTimestamp
+from app.domain.entities import TranscriptionResult, VoiceProfileEntity, WordTimestamp
 from app.domain.exceptions import AudioProcessingError
 from app.ml.audio_processor import FFmpegAudioProcessor
 from app.ml.inference_engine import InferenceEngine
@@ -412,3 +412,181 @@ def test_inference_engine_real_wav_features_and_clustering(tmp_path: Path) -> No
     ):
         labels_fallback = engine._cluster_acoustic_features([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], 3)
         assert labels_fallback == [0, 1, 0]
+
+
+def test_inference_engine_compute_voice_similarity() -> None:
+    """Validates cosine similarity calculation between voice embeddings and edge cases."""
+    # 1. Identical vectors -> 1.0
+    v1 = [1.0, 0.0, 0.0]
+    v2 = [1.0, 0.0, 0.0]
+    assert pytest.approx(InferenceEngine.compute_voice_similarity(v1, v2), 0.001) == 1.0
+
+    # 2. Orthogonal vectors -> 0.0
+    v3 = [0.0, 1.0, 0.0]
+    assert pytest.approx(InferenceEngine.compute_voice_similarity(v1, v3), 0.001) == 0.0
+
+    # 3. Mismatched dimensions or empty -> 0.0
+    assert InferenceEngine.compute_voice_similarity([], [1.0]) == 0.0
+    assert InferenceEngine.compute_voice_similarity([1.0, 2.0], [1.0]) == 0.0
+    assert InferenceEngine.compute_voice_similarity([0.0, 0.0], [0.0, 0.0]) == 0.0
+
+
+def test_inference_engine_update_profile_embedding() -> None:
+    """Validates running centroid update of voice embeddings."""
+    old_emb = [1.0, 0.0, 0.0]
+    new_emb = [0.0, 1.0, 0.0]
+
+    updated = InferenceEngine.update_profile_embedding(old_emb, new_emb, samples_count=1)
+    assert len(updated) == 3
+    assert pytest.approx(updated[0], 0.01) == pytest.approx(updated[1], 0.01)
+
+    # Empty inputs
+    assert InferenceEngine.update_profile_embedding([], new_emb, 1) == new_emb
+    assert InferenceEngine.update_profile_embedding(old_emb, [], 1) == old_emb
+
+
+def test_inference_engine_extract_speaker_embedding_real_and_fallback(tmp_path: Path) -> None:
+    """Validates acoustic voice embedding extraction with real WAV audio and heuristic fallback."""
+    engine = InferenceEngine()
+
+    # Real WAV
+    wav_file = tmp_path / "speaker.wav"
+    create_test_wav(wav_file, channels=1, duration=1.0)
+    segments = [{"start": 0.0, "end": 0.8, "words": []}]
+
+    emb = engine.extract_speaker_embedding(wav_file, segments)
+    assert len(emb) == settings.VOICE_EMBEDDING_DIM
+    assert any(x != 0.0 for x in emb)
+
+    # Empty segments
+    emb_empty = engine.extract_speaker_embedding(wav_file, [])
+    assert len(emb_empty) == settings.VOICE_EMBEDDING_DIM
+    assert all(x == 0.0 for x in emb_empty)
+
+    # Missing file fallback
+    non_existent = tmp_path / "missing.wav"
+    emb_fallback = engine.extract_speaker_embedding(non_existent, segments)
+    assert len(emb_fallback) == settings.VOICE_EMBEDDING_DIM
+    assert any(x != 0.0 for x in emb_fallback)
+
+
+def test_inference_engine_extract_all_speaker_embeddings(tmp_path: Path) -> None:
+    """Validates batch embedding extraction for all speaker turns."""
+    engine = InferenceEngine()
+    wav_file = tmp_path / "multi_speaker.wav"
+    create_test_wav(wav_file, channels=1, duration=2.0)
+
+    turns = [
+        {"speaker": "Спикер 1", "start": 0.0, "end": 0.9},
+        {"speaker": "Спикер 2", "start": 1.0, "end": 1.9},
+    ]
+    embs = engine.extract_all_speaker_embeddings(wav_file, turns)
+    assert "Спикер 1" in embs
+    assert "Спикер 2" in embs
+    assert len(embs["Спикер 1"]) == settings.VOICE_EMBEDDING_DIM
+
+
+def test_inference_engine_match_speakers_with_voice_memory(tmp_path: Path) -> None:
+    """Validates matching unknown speaker labels against saved voice memory profiles."""
+    engine = InferenceEngine()
+
+    # Create dummy embeddings
+    emb_alice = [1.0] + [0.0] * 31
+    emb_bob = [0.0, 1.0] + [0.0] * 30
+
+    turns = [
+        {"speaker": "Спикер 1", "start": 0.0, "end": 1.0},
+        {"speaker": "Спикер 2", "start": 1.1, "end": 2.0},
+    ]
+    speaker_embeddings = {
+        "Спикер 1": emb_alice,
+        "Спикер 2": emb_bob,
+    }
+
+    profiles = [
+        VoiceProfileEntity(user_id=1, name="Алиса", embedding=emb_alice),
+        VoiceProfileEntity(user_id=1, name="Боб", embedding=emb_bob),
+    ]
+
+    # 1. Successful recognition
+    matched_turns, matched_embs = engine.match_speakers_with_voice_memory(
+        speaker_turns=turns,
+        speaker_embeddings=speaker_embeddings,
+        voice_profiles=profiles,
+        threshold=0.8,
+    )
+    assert matched_turns[0]["speaker"] == "Алиса"
+    assert matched_turns[1]["speaker"] == "Боб"
+    assert "Алиса" in matched_embs
+    assert "Боб" in matched_embs
+
+    # 2. Threshold below match -> unchanged
+    matched_turns_high, _ = engine.match_speakers_with_voice_memory(
+        speaker_turns=turns,
+        speaker_embeddings=speaker_embeddings,
+        voice_profiles=[VoiceProfileEntity(user_id=1, name="Чарли", embedding=[0.0] * 32)],
+        threshold=0.95,
+    )
+    assert matched_turns_high[0]["speaker"] == "Спикер 1"
+
+    # 3. Empty profiles or empty embedding -> skips empty
+    t_empty, e_empty = engine.match_speakers_with_voice_memory(turns, speaker_embeddings, [])
+    assert t_empty == turns
+    assert e_empty == speaker_embeddings
+
+    profile_empty_emb = VoiceProfileEntity(user_id=1, name="Пустой", embedding=[])
+    t_empty_emb, _ = engine.match_speakers_with_voice_memory(
+        turns, speaker_embeddings, [profile_empty_emb]
+    )
+    assert t_empty_emb == turns
+
+    # 4. Duplicate best matches (greedy assignment skips already assigned current_spk or profile)
+    duplicate_profiles = [
+        VoiceProfileEntity(user_id=1, name="Алиса", embedding=emb_alice),
+        VoiceProfileEntity(user_id=1, name="Алиса Клон", embedding=emb_alice),
+    ]
+    matched_dups, _ = engine.match_speakers_with_voice_memory(
+        turns, speaker_embeddings, duplicate_profiles, threshold=0.5
+    )
+    assert matched_dups[0]["speaker"] == "Алиса"
+
+
+def test_inference_engine_extract_speaker_embedding_stereo_and_short(tmp_path: Path) -> None:
+    """Validates speaker embedding extraction on stereo WAV, short chunks (<250 samples), and target_dim edge."""
+    engine = InferenceEngine()
+    stereo_wav = tmp_path / "speaker_stereo.wav"
+    create_test_wav(stereo_wav, channels=2, duration=1.0)
+
+    # Segment with short chunk < 250 samples and normal chunk
+    segments = [
+        {"start": 0.0, "end": 0.01},  # 160 samples -> < 250
+        {"start": 0.1, "end": 0.9},   # Normal chunk
+    ]
+    emb = engine.extract_speaker_embedding(stereo_wav, segments)
+    assert len(emb) == settings.VOICE_EMBEDDING_DIM
+    assert any(x != 0.0 for x in emb)
+
+    # With smaller target_dim triggering slice branch
+    with patch.object(settings, "VOICE_EMBEDDING_DIM", 16):
+        emb_small = engine.extract_speaker_embedding(stereo_wav, segments)
+        assert len(emb_small) == 16
+
+
+@pytest.mark.asyncio
+async def test_inference_engine_process_audio_with_voice_memory(tmp_path: Path) -> None:
+    """Validates end-to-end process_audio execution with automatic voice memory recognition."""
+    engine = InferenceEngine()
+    dummy_audio = tmp_path / "voice_demo.wav"
+    create_test_wav(dummy_audio, channels=1, duration=1.0)
+
+    # Extract default speaker embedding
+    raw_emb = engine.extract_speaker_embedding(dummy_audio, [{"start": 0.0, "end": 1.0}])
+
+    profile = VoiceProfileEntity(user_id=1, name="Константин", embedding=raw_emb)
+
+    result = await engine.process_audio(dummy_audio, voice_profiles=[profile])
+    assert isinstance(result, TranscriptionResult)
+    assert len(result.utterances) > 0
+    # First utterance should be recognized as Konstantin
+    assert result.utterances[0].speaker == "Константин"
+    assert "Константин" in result.speaker_embeddings

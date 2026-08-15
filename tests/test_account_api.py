@@ -12,6 +12,7 @@ from httpx import AsyncClient
 
 from app.api.v1.endpoints.account import _get_django_user_orm
 from app.db.models import Transcription
+from app.repository.job_repository import VoiceProfileRepository
 
 
 @pytest.mark.asyncio
@@ -275,3 +276,39 @@ async def test_stream_transcription_audio(client: AsyncClient, test_user, tmp_pa
         resp = await client.get(f"/api/v1/account/transcriptions/{rec.id}/audio")
         assert resp.status_code == 200
         assert expected_content_type in resp.headers["content-type"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_user_voice_profiles_crud(client: AsyncClient, test_user) -> None:
+    """Validates listing and deleting saved voice profiles for current user."""
+    repo = VoiceProfileRepository()
+
+    # Create test voice profile
+    profile = await repo.save_or_update_voice_profile(
+        user_id=test_user.pk,
+        name="Иван Иванов",
+        embedding=[0.1] * 32,
+    )
+
+    # 1. List voice profiles
+    resp = await client.get("/api/v1/account/voices")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 1
+    matched = [p for p in data if p["id"] == str(profile.id)]
+    assert len(matched) == 1
+    assert matched[0]["name"] == "Иван Иванов"
+    assert matched[0]["samples_count"] == 1
+
+    # 2. Delete existing voice profile
+    del_resp = await client.delete(f"/api/v1/account/voices/{profile.id}")
+    assert del_resp.status_code == 204
+
+    # Verify deleted
+    deleted_check = await repo.get_voice_profile_by_id(profile.id, test_user.pk)
+    assert deleted_check is None
+
+    # 3. Delete non-existent profile -> 404
+    del_404 = await client.delete(f"/api/v1/account/voices/{uuid4()}")
+    assert del_404.status_code == 404

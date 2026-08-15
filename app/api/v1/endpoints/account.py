@@ -13,11 +13,13 @@ from fastapi.responses import FileResponse
 
 from app.core.security import DjangoUserSchema, get_current_django_user
 from app.db.models import Transcription
+from app.repository.job_repository import VoiceProfileRepository
 from app.schemas.account import (
     PaginatedTranscriptionListResponse,
     TranscriptionResponse,
     UserProfileResponse,
     UserProfileUpdate,
+    VoiceProfileResponse,
 )
 
 
@@ -301,3 +303,64 @@ async def stream_transcription_audio(
     }
     media_type = content_types.get(ext, "application/octet-stream")
     return FileResponse(path=audio_path, media_type=media_type, filename=item.original_filename)
+
+
+@router.get("/voices", response_model=list[VoiceProfileResponse])
+async def list_user_voice_profiles(
+    current_user: DjangoUserSchema = Depends(get_current_django_user),
+) -> list[VoiceProfileResponse]:
+    """Retrieve all saved speaker voice memory profiles belonging to the current user.
+
+    Args:
+        current_user: Authenticated user.
+
+    Returns:
+        List of VoiceProfileResponse schemas containing profile metadata.
+
+    Example:
+        >>> profiles = await list_user_voice_profiles(current_user)
+    """
+    repo = VoiceProfileRepository()
+    profiles = await repo.get_user_voice_profiles(current_user.id)
+    return [
+        VoiceProfileResponse(
+            id=p.id,
+            user_id=p.user_id,
+            name=p.name,
+            samples_count=p.samples_count,
+            created_at=p.created_at,
+            updated_at=p.updated_at,
+        )
+        for p in profiles
+    ]
+
+
+@router.delete("/voices/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_voice_profile(
+    profile_id: UUID,
+    current_user: DjangoUserSchema = Depends(get_current_django_user),
+) -> Response:
+    """Deletes a saved speaker voice memory profile for the current user.
+
+    Args:
+        profile_id: UUID of the target voice profile.
+        current_user: Authenticated user.
+
+    Returns:
+        HTTP 204 No Content on success.
+
+    Raises:
+        HTTPException: 404 if profile not found or belongs to another user.
+
+    Example:
+        >>> resp = await delete_user_voice_profile(profile_id, current_user)
+    """
+    repo = VoiceProfileRepository()
+    deleted = await repo.delete_voice_profile(profile_id=profile_id, user_id=current_user.id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Voice profile '{profile_id}' not found.",
+        )
+
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

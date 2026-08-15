@@ -83,3 +83,16 @@ class SpeakerRenameRequest(BaseModel):
         max_length=100,
         description="New human-readable speaker name or alias.",
     )
+
+
+class VoiceProfileResponse(BaseModel):
+    """Schema for returning saved speaker voice profile details."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    user_id: int
+    name: str
+    samples_count: int
+    created_at: datetime
+    updated_at: datetime

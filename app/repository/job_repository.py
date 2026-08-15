@@ -7,9 +7,16 @@ from uuid import UUID
 from asgiref.sync import sync_to_async
 
 from app.core.logging import logger
-from app.db.models import Transcription, TranscriptionJob
-from app.domain.entities import JobStatus, TranscriptionJobEntity, TranscriptionResult, Utterance
+from app.db.models import Transcription, TranscriptionJob, VoiceProfile
+from app.domain.entities import (
+    JobStatus,
+    TranscriptionJobEntity,
+    TranscriptionResult,
+    Utterance,
+    VoiceProfileEntity,
+)
 from app.domain.exceptions import JobNotFoundError
+from app.ml.inference_engine import InferenceEngine
 
 
 def format_speaker_transcription(utterances: list[Utterance]) -> str:
@@ -141,3 +148,150 @@ class JobRepository:
             logger.debug(f"Transcription record {job_id} does not exist for sync.")
         except Exception as err:
             logger.warning(f"Error syncing user transcription record {job_id}: {err}")
+
+
+class VoiceProfileRepository:
+    """Async repository managing user speaker voice profiles and embedding centroids."""
+
+    def __init__(self, session=None) -> None:
+        self.session = session
+
+    async def get_user_voice_profiles(self, user_id: int) -> list[VoiceProfileEntity]:
+        """Retrieves all voice profiles belonging to a specific user.
+
+        Args:
+            user_id: Target user identifier.
+
+        Returns:
+            List of domain voice profile entities.
+
+        Example:
+            >>> profiles = await repo.get_user_voice_profiles(user_id=1)
+        """
+        @sync_to_async(thread_sensitive=True)
+        def _fetch_profiles() -> list[VoiceProfile]:
+            return list(VoiceProfile.objects.filter(user_id=user_id).order_by("-updated_at"))
+
+        models = await _fetch_profiles()
+        return [
+            VoiceProfileEntity(
+                id=m.id,
+                user_id=m.user_id,
+                name=m.name,
+                embedding=m.embedding or [],
+                samples_count=m.samples_count,
+                created_at=m.created_at,
+                updated_at=m.updated_at,
+            )
+            for m in models
+        ]
+
+    async def get_voice_profile_by_id(
+        self, profile_id: UUID, user_id: int
+    ) -> VoiceProfileEntity | None:
+        """Retrieves a single voice profile by its ID and user ownership.
+
+        Args:
+            profile_id: Unique UUID of the voice profile.
+            user_id: ID of the owning user.
+
+        Returns:
+            VoiceProfileEntity if found, otherwise None.
+
+        Example:
+            >>> profile = await repo.get_voice_profile_by_id(uuid4(), 1)
+        """
+        try:
+            model = await sync_to_async(VoiceProfile.objects.get)(id=profile_id, user_id=user_id)
+            return VoiceProfileEntity(
+                id=model.id,
+                user_id=model.user_id,
+                name=model.name,
+                embedding=model.embedding or [],
+                samples_count=model.samples_count,
+                created_at=model.created_at,
+                updated_at=model.updated_at,
+            )
+        except VoiceProfile.DoesNotExist:
+            return None
+
+    async def save_or_update_voice_profile(
+        self,
+        user_id: int,
+        name: str,
+        embedding: list[float],
+    ) -> VoiceProfileEntity:
+        """Persists a new voice profile or updates an existing one using running average centroids.
+
+        Args:
+            user_id: User identifier owning this speaker profile.
+            name: Human-readable speaker name or alias.
+            embedding: Extracted normalized acoustic feature vector.
+
+        Returns:
+            Persisted VoiceProfileEntity domain model.
+
+        Example:
+            >>> profile = await repo.save_or_update_voice_profile(1, "Alice", [0.1, 0.2])
+        """
+        clean_name = name.strip()
+
+        @sync_to_async(thread_sensitive=True)
+        def _persist() -> VoiceProfileEntity:
+            try:
+                model = VoiceProfile.objects.get(user_id=user_id, name=clean_name)
+                # Running centroid update
+                updated_emb = InferenceEngine.update_profile_embedding(
+                    existing_embedding=model.embedding or [],
+                    new_embedding=embedding,
+                    samples_count=model.samples_count,
+                )
+                model.embedding = updated_emb
+                model.samples_count += 1
+                model.updated_at = datetime.now(UTC)
+                model.save()
+            except VoiceProfile.DoesNotExist:
+                model = VoiceProfile.objects.create(
+                    user_id=user_id,
+                    name=clean_name,
+                    embedding=embedding,
+                    samples_count=1,
+                    created_at=datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
+                )
+
+            return VoiceProfileEntity(
+                id=model.id,
+                user_id=model.user_id,
+                name=model.name,
+                embedding=model.embedding or [],
+                samples_count=model.samples_count,
+                created_at=model.created_at,
+                updated_at=model.updated_at,
+            )
+
+        return await _persist()
+
+    async def delete_voice_profile(self, profile_id: UUID, user_id: int) -> bool:
+        """Deletes a voice profile if it exists and belongs to the specified user.
+
+        Args:
+            profile_id: Unique UUID of the profile to delete.
+            user_id: Identifier of the authenticated user.
+
+        Returns:
+            True if deleted successfully, False if not found.
+
+        Example:
+            >>> deleted = await repo.delete_voice_profile(uuid4(), 1)
+        """
+        @sync_to_async(thread_sensitive=True)
+        def _delete() -> bool:
+            try:
+                model = VoiceProfile.objects.get(id=profile_id, user_id=user_id)
+                model.delete()
+                return True
+            except VoiceProfile.DoesNotExist:
+                return False
+
+        return await _delete()

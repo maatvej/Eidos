@@ -1,7 +1,15 @@
 # filename: tests/test_domain.py
 """Unit testing suite for domain entities, exception handling, and export formats."""
 
-from app.domain.entities import TranscriptionResult, Utterance, WordTimestamp
+from uuid import uuid4
+
+from app.db.models import VoiceProfile
+from app.domain.entities import (
+    TranscriptionResult,
+    Utterance,
+    VoiceProfileEntity,
+    WordTimestamp,
+)
 from app.services.export_service import ExportService
 
 
@@ -34,3 +42,21 @@ def test_export_service_srt_and_vtt() -> None:
     vtt = export_svc.to_vtt(result)
     assert "WEBVTT" in vtt
     assert "00:00:00.000 --> 00:00:02.000" in vtt
+
+
+def test_voice_profile_entity_and_model_str() -> None:
+    """Validates VoiceProfileEntity instantiation and VoiceProfile ORM __str__ method."""
+    profile_id = uuid4()
+    entity = VoiceProfileEntity(
+        id=profile_id,
+        user_id=42,
+        name="Сергей Смирнов",
+        embedding=[0.1] * 32,
+        samples_count=3,
+    )
+    assert entity.id == profile_id
+    assert entity.name == "Сергей Смирнов"
+    assert entity.samples_count == 3
+
+    model = VoiceProfile(id=profile_id, user_id=42, name="Сергей Смирнов")
+    assert str(model) == "Сергей Смирнов (user_id=42)"

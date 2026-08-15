@@ -34,7 +34,8 @@ from app.core.security import (
 from app.db.models import Transcription
 from app.domain.entities import JobStatus, TranscriptionJobEntity
 from app.domain.exceptions import JobNotFoundError
-from app.repository.job_repository import JobRepository
+from app.ml.inference_engine import InferenceEngine
+from app.repository.job_repository import JobRepository, VoiceProfileRepository
 from app.schemas.account import SpeakerRenameRequest
 from app.services.export_service import ExportService
 from app.workers.tasks import process_transcription_job, startup
@@ -211,9 +212,27 @@ async def bulk_rename_speaker(
     new_speaker_name: str | None = None,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> TranscriptionJobEntity:
-    """Globally renames speaker tags across the entire transcript.
+    """Globally renames speaker tags across the entire transcript and stores voice memory profile.
 
     Supports both JSON body payload and URL query parameters for full interoperability.
+    Extracts or retrieves the speaker's acoustic voice embedding and updates the user's
+    voice profile in database memory for automatic recognition on future uploads.
+
+    Args:
+        job_id: Target transcription job UUID.
+        payload: Optional JSON body with old_speaker_label and new_speaker_name.
+        old_speaker_label: Optional query parameter for the existing speaker tag.
+        new_speaker_name: Optional query parameter for the new speaker name.
+        current_user: Authenticated Django user making the request.
+
+    Returns:
+        Updated TranscriptionJobEntity with renamed utterances and speaker embeddings.
+
+    Raises:
+        HTTPException: 400 if parameters missing or job has no results, 404 if speaker not found.
+
+    Example:
+        >>> job = await bulk_rename_speaker(job_id, SpeakerRenameRequest(old_speaker_label="Спикер 1", new_speaker_name="Алиса"))
     """
     target_old = (payload.old_speaker_label if payload else old_speaker_label) or ""
     target_new = (payload.new_speaker_name if payload else new_speaker_name) or ""
@@ -224,7 +243,11 @@ async def bulk_rename_speaker(
             detail="Both 'old_speaker_label' and 'new_speaker_name' must be provided.",
         )
 
+    clean_old = target_old.strip()
+    clean_new = target_new.strip()
+
     repo = JobRepository()
+    voice_repo = VoiceProfileRepository()
     job = await repo.get_by_id(job_id)
 
     if not job.result:
@@ -234,16 +257,44 @@ async def bulk_rename_speaker(
         )
 
     renamed_count = 0
+    matching_segments: list[dict[str, Any]] = []
     for utt in job.result.utterances:
-        if utt.speaker == target_old:
-            utt.speaker = target_new
+        if utt.speaker == clean_old:
+            utt.speaker = clean_new
             renamed_count += 1
+            matching_segments.append(
+                {"start": utt.start, "end": utt.end, "words": utt.words, "speaker": clean_new}
+            )
 
     if renamed_count == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No utterances found matching speaker label '{target_old}'.",
+            detail=f"No utterances found matching speaker label '{clean_old}'.",
         )
+
+    # Manage acoustic voice embedding and voice profile memory
+    speaker_emb = job.result.speaker_embeddings.pop(clean_old, None)
+    if not speaker_emb:
+        # Extract on demand from audio file if missing
+        audio_p = Path(job.file_path)
+        engine = InferenceEngine()
+        speaker_emb = engine.extract_speaker_embedding(audio_p, matching_segments)
+
+    job.result.speaker_embeddings[clean_new] = speaker_emb
+
+    # Persist or update voice profile in database memory for current user
+    if speaker_emb and current_user.id:
+        try:
+            await voice_repo.save_or_update_voice_profile(
+                user_id=current_user.id,
+                name=clean_new,
+                embedding=speaker_emb,
+            )
+            logger.info(
+                f"Saved voice memory profile '{clean_new}' for user '{current_user.username}' (id={current_user.id})."
+            )
+        except Exception as vp_err:
+            logger.warning(f"Error saving voice memory profile: {vp_err}")
 
     await repo.update_progress(
         job_id=job_id,

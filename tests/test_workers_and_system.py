@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from asgiref.sync import sync_to_async
 
 from app.asgi import UnifiedASGIApplication
 from app.core.logging import JSONFormatter, setup_logging
@@ -20,7 +21,7 @@ from app.domain.entities import (
     TranscriptionResult,
     Utterance,
 )
-from app.repository.job_repository import JobRepository
+from app.repository.job_repository import JobRepository, VoiceProfileRepository
 from app.workers.tasks import WorkerSettings, process_transcription_job, startup
 
 
@@ -91,6 +92,81 @@ async def test_process_transcription_job_success_and_cleanup(tmp_path: Path) -> 
         assert updated_job.progress_percentage == 100.0
         # Verify temporary normalized file was deleted
         assert not normalized_file.exists()
+
+
+@pytest.mark.asyncio
+@pytest.mark.django_db(transaction=True)
+async def test_process_transcription_job_with_user_voice_memory(test_user, tmp_path: Path) -> None:
+    """Validates worker loading user voice profiles from database and passing them to inference engine."""
+    audio_file = tmp_path / "voice_job.wav"
+    audio_file.write_bytes(b"RIFF....WAVE")
+
+    job_id = uuid4()
+    job_entity = TranscriptionJobEntity(
+        id=job_id,
+        filename="voice_job.wav",
+        file_path=str(audio_file),
+        status=JobStatus.PENDING,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    repo = JobRepository()
+    await repo.create(job_entity)
+
+    # Link Transcription ORM model to user
+    await sync_to_async(Transcription.objects.create)(
+        id=job_id,
+        user=test_user,
+        title="Тест голосовой памяти",
+        original_filename="voice_job.wav",
+        file_path=str(audio_file),
+    )
+
+    # Create saved voice profile for test_user
+    voice_repo = VoiceProfileRepository()
+    saved_profile = await voice_repo.save_or_update_voice_profile(
+        user_id=test_user.pk,
+        name="Елена Васильева",
+        embedding=[0.5] * 32,
+    )
+
+    mock_ffmpeg = AsyncMock()
+    mock_ffmpeg.normalize_and_vad.return_value = audio_file
+
+    mock_result = TranscriptionResult(
+        utterances=[Utterance(speaker="Елена Васильева", start=0.0, end=2.0, text="Приветствую")],
+        duration_seconds=2.0,
+        detected_language="ru",
+        speaker_embeddings={"Елена Васильева": [0.5] * 32},
+    )
+    mock_analysis = ConversationAnalysis(
+        title="Совещание",
+        executive_summary="Обсуждение проекта.",
+        key_decisions=[],
+        action_items=[],
+    )
+    mock_llm = AsyncMock()
+    mock_llm.extract_intelligence.return_value = mock_analysis
+
+    ctx = {"ffmpeg": mock_ffmpeg, "llm": mock_llm}
+
+    with patch(
+        "app.workers.tasks.inference_engine.process_audio", new_callable=AsyncMock
+    ) as mock_process:
+        mock_process.return_value = mock_result
+
+        await process_transcription_job(ctx, str(job_id))
+
+        mock_process.assert_called_once()
+        _, kwargs = mock_process.call_args
+        passed_profiles = kwargs.get("voice_profiles", [])
+        assert len(passed_profiles) >= 1
+        assert any(p.name == "Елена Васильева" for p in passed_profiles)
+
+        updated_job = await repo.get_by_id(job_id)
+        assert updated_job.status == JobStatus.COMPLETED
+        assert updated_job.result is not None
+        assert updated_job.result.utterances[0].speaker == "Елена Васильева"
 
 
 @pytest.mark.asyncio
