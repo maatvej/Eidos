@@ -28,7 +28,6 @@ from app.core.logging import logger
 from app.core.profiler import profile_async, profile_sync
 from app.core.security import (
     DjangoUserSchema,
-    RequirePermission,
     get_current_django_user,
 )
 from app.db.models import Transcription
@@ -55,7 +54,6 @@ async def _run_local_background_job(job_id_str: str) -> None:
 @router.post(
     "/upload",
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(RequirePermission("db.add_transcriptionjob"))],
 )
 @profile_async(name="transcription_upload_endpoint", subfolder="transcription")
 async def upload_audio_file(
@@ -65,7 +63,21 @@ async def upload_audio_file(
 ) -> dict[str, Any]:
     """Handles audio upload, persists initial entity using Django ORM, and routes task to background execution.
 
-    Requires Django Permission: 'db.add_transcriptionjob'
+    Accessible to any authenticated registered user.
+
+    Args:
+        background_tasks: Background tasks runner for asynchronous processing.
+        file: Uploaded audio file stream.
+        current_user: Authenticated Django user schema.
+
+    Returns:
+        dict[str, Any]: Dictionary containing job ID, queue status, and creator username.
+
+    Raises:
+        HTTPException: If user authentication fails.
+
+    Example:
+        >>> # Invoked via POST /api/v1/transcription/upload with multipart form-data
     """
     job_id = uuid4()
     safe_filename = file.filename or "uploaded_audio.wav"
@@ -176,13 +188,28 @@ async def get_job_audio(
 
 @router.post(
     "/jobs/{job_id}/cancel",
-    dependencies=[Depends(RequirePermission("db.change_transcriptionjob"))],
 )
 async def cancel_job(
     job_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> dict[str, str]:
-    """Signals job cancellation for active or pending processing operations."""
+    """Signals job cancellation for active or pending processing operations.
+
+    Accessible to any authenticated registered user.
+
+    Args:
+        job_id: Unique UUID of the transcription job to cancel.
+        current_user: Authenticated Django user schema.
+
+    Returns:
+        dict[str, str]: Confirmation message dictionary.
+
+    Raises:
+        HTTPException: 400 if the job is already completed, failed, or cancelled.
+
+    Example:
+        >>> result = await cancel_job(job_id, current_user)
+    """
     repo = JobRepository()
     job = await repo.get_by_id(job_id)
 
@@ -203,7 +230,6 @@ async def cancel_job(
 
 @router.post(
     "/jobs/{job_id}/speaker-rename",
-    dependencies=[Depends(RequirePermission("db.change_transcriptionjob"))],
 )
 async def bulk_rename_speaker(
     job_id: UUID,

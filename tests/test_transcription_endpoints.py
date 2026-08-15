@@ -389,3 +389,128 @@ async def test_upload_audio_file_streaming_success(client: AsyncClient) -> None:
         assert "job_id" in data
         assert data["status"] == "QUEUED_LOCAL"
         assert data["created_by"] == "test_admin"
+
+
+@pytest.mark.asyncio
+async def test_registered_user_without_admin_perms_has_full_ui_access(
+    client: AsyncClient, tmp_path: Path
+) -> None:
+    """Verifies that a standard registered user (no staff/superuser/explicit permissions) has full access to all main UI operations.
+
+    Args:
+        client: Async HTTP test client with dependency overrides.
+        tmp_path: Temporary pytest filesystem directory fixture.
+
+    Returns:
+        None
+
+    Raises:
+        AssertionError: If any main UI endpoint rejects the registered user.
+
+    Example:
+        >>> # Executed automatically via pytest test suite
+    """
+    from asgiref.sync import sync_to_async
+    from django.contrib.auth import get_user_model
+    from httpx import ASGITransport, AsyncClient as StandardAsyncClient
+
+    from app.core.security import DjangoUserSchema, get_current_django_user
+    from app.db.models import Transcription
+    from app.main import app
+
+    User = get_user_model()
+    reg_user, _ = await sync_to_async(User.objects.get_or_create)(
+        username="standard_user",
+        defaults={
+            "email": "standard@eidos.ai",
+            "is_active": True,
+            "is_staff": False,
+            "is_superuser": False,
+        },
+    )
+
+    reg_user_schema = DjangoUserSchema(
+        id=reg_user.pk,
+        username=reg_user.username,
+        email=reg_user.email,
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+        groups=[],
+        permissions=[],
+    )
+
+    app.dependency_overrides[get_current_django_user] = lambda: reg_user_schema
+
+    try:
+        async with StandardAsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as standard_client:
+            # 1. Standard user uploads audio file -> 202 Accepted
+            file_content = (
+                b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00"
+            )
+            files = {"file": ("user_meeting.wav", file_content, "audio/wav")}
+
+            with patch(
+                "app.api.v1.endpoints.transcription._run_local_background_job",
+                new_callable=AsyncMock,
+            ):
+                upload_resp = await standard_client.post(
+                    "/api/v1/transcription/upload", files=files
+                )
+                assert upload_resp.status_code == 202
+                upload_data = upload_resp.json()
+                uploaded_job_id = upload_data["job_id"]
+                assert upload_data["status"] == "QUEUED_LOCAL"
+                assert upload_data["created_by"] == "standard_user"
+
+            # 2. Standard user cancels in-progress job -> 200 OK
+            cancel_resp = await standard_client.post(
+                f"/api/v1/transcription/jobs/{uploaded_job_id}/cancel"
+            )
+            assert cancel_resp.status_code == 200
+
+            # 3. Standard user renames speaker on completed transcription -> 200 OK
+            completed_id = uuid4()
+            completed_job = TranscriptionJobEntity(
+                id=completed_id,
+                filename="standard_test.wav",
+                file_path="/tmp/standard_test.wav",
+                status=JobStatus.COMPLETED,
+                progress_percentage=100.0,
+                result=TranscriptionResult(
+                    utterances=[
+                        Utterance(speaker="Спикер 1", start=0.0, end=1.5, text="Привет мир")
+                    ],
+                    duration_seconds=1.5,
+                ),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+            repo = JobRepository()
+            await repo.create(completed_job)
+
+            await sync_to_async(Transcription.objects.create)(
+                id=completed_id,
+                user=reg_user,
+                title="standard_test.wav",
+                original_filename="standard_test.wav",
+                file_path="/tmp/standard_test.wav",
+                status="completed",
+                transcription_text="Спикер 1: Привет мир",
+            )
+
+            rename_resp = await standard_client.post(
+                f"/api/v1/transcription/jobs/{completed_id}/speaker-rename",
+                json={"old_speaker_label": "Спикер 1", "new_speaker_name": "Анна"},
+            )
+            assert rename_resp.status_code == 200
+            assert rename_resp.json()["result"]["utterances"][0]["speaker"] == "Анна"
+
+            # 4. Standard user accesses SPA routes
+            for spa_path in ["/", "/studio", "/dashboard", "/account", "/account/history"]:
+                spa_resp = await standard_client.get(spa_path)
+                assert spa_resp.status_code == 200
+    finally:
+        app.dependency_overrides.clear()
