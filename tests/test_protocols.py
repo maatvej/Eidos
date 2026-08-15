@@ -4,8 +4,6 @@
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 from app.core.django_urls import urlpatterns
 from app.domain.entities import ConversationAnalysis
 from app.domain.protocols import (
@@ -32,9 +30,7 @@ class DummyDiarizer:
 
 
 class DummyLLMIntelligenceEngine:
-    async def extract_intelligence(
-        self, text: str, language: str = "auto"
-    ) -> ConversationAnalysis:
+    async def extract_intelligence(self, text: str, language: str = "auto") -> ConversationAnalysis:
         return ConversationAnalysis(
             title="Title",
             executive_summary="Summary",

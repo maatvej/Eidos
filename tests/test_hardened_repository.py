@@ -122,9 +122,7 @@ async def test_update_transcript_utterance_safe_errors(mock_session: AsyncMock) 
         assert exc_no_utt.value.code == "UTTERANCE_NOT_FOUND"
 
         # 4. StaleDataError -> ConcurrentUpdateError
-        mock_session.commit.side_effect = StaleDataError(
-            "Row was modified by another transaction"
-        )
+        mock_session.commit.side_effect = StaleDataError("Row was modified by another transaction")
         with pytest.raises(ConcurrentUpdateError) as exc_stale:
             await repo.update_transcript_utterance_safe(job_id, utt.id, "new text")
         assert exc_stale.value.code == "CONCURRENT_UPDATE_CONFLICT"

@@ -11,6 +11,7 @@ import torch
 from app.core.config import settings
 from app.core.logging import logger
 from app.core.metrics import INFERENCE_LATENCY
+from app.core.profiler import profile_async, profile_sync
 from app.domain.entities import TranscriptionResult, Utterance, WordTimestamp
 
 
@@ -111,6 +112,7 @@ class InferenceEngine:
             )
             self.diarization_pipeline = None
 
+    @profile_async(name="speech_transcription_and_diarization", subfolder="ml_inference")
     async def process_audio(self, audio_path: Path) -> TranscriptionResult:
         """Runs speech recognition and speaker diarization with precise alignment."""
         start_time = time.perf_counter()
@@ -135,6 +137,7 @@ class InferenceEngine:
             detected_language=detected_lang,
         )
 
+    @profile_sync(name="whisper_speech_transcription", subfolder="ml_inference")
     def _run_transcription(self, audio_path: Path) -> tuple[list[WordTimestamp], str, float]:
         if not self.whisper_model:
             # Fallback mock engine for instant demo/test environments
@@ -199,6 +202,7 @@ class InferenceEngine:
                 )
         return extracted_words, info.language, info.duration
 
+    @profile_sync(name="speaker_diarization", subfolder="ml_inference")
     def _run_diarization(
         self, audio_path: Path, words: list[WordTimestamp]
     ) -> list[dict[str, Any]]:
@@ -276,7 +280,13 @@ class InferenceEngine:
         )
 
         if len(speech_segments) <= 1:
-            return [{"start": speech_segments[0]["start"], "end": speech_segments[0]["end"], "speaker": "Спикер 1"}]
+            return [
+                {
+                    "start": speech_segments[0]["start"],
+                    "end": speech_segments[0]["end"],
+                    "speaker": "Спикер 1",
+                }
+            ]
 
         # 2. Extract acoustic timbre features per speech segment if audio file is available
         features = self._extract_segment_acoustic_features(audio_path, speech_segments)
@@ -304,6 +314,7 @@ class InferenceEngine:
 
         return turns
 
+    @profile_sync(name="acoustic_feature_extraction", subfolder="ml_inference")
     def _extract_segment_acoustic_features(
         self, audio_path: Path, segments: list[dict[str, Any]]
     ) -> list[list[float]]:
@@ -364,7 +375,9 @@ class InferenceEngine:
                 features.append([rms, zcr, spectral_centroid / 4000.0, low_ratio, mid_ratio])
 
         except Exception as e:
-            logger.debug(f"Direct WAV acoustic extraction skipped ({e}). Using rhythm/pause heuristics.")
+            logger.debug(
+                f"Direct WAV acoustic extraction skipped ({e}). Using rhythm/pause heuristics."
+            )
             # Heuristic feature fallback: speech rate and pause dynamics
             for idx, seg in enumerate(segments):
                 dur = max(seg["end"] - seg["start"], 0.1)
@@ -374,6 +387,7 @@ class InferenceEngine:
 
         return features
 
+    @profile_sync(name="acoustic_timbre_clustering", subfolder="ml_inference")
     def _cluster_acoustic_features(
         self, features: list[list[float]], num_segments: int
     ) -> list[int]:
@@ -395,7 +409,9 @@ class InferenceEngine:
 
         if num_segments >= 2 and k > 1:
             try:
-                clustering = AgglomerativeClustering(n_clusters=min(k, num_segments), metric="euclidean", linkage="ward")
+                clustering = AgglomerativeClustering(
+                    n_clusters=min(k, num_segments), metric="euclidean", linkage="ward"
+                )
                 labels = clustering.fit_predict(X_norm)
                 return [int(lbl) for lbl in labels]
             except Exception as cluster_err:
@@ -429,6 +445,7 @@ class InferenceEngine:
 
         return best_speaker
 
+    @profile_sync(name="word_speaker_alignment", subfolder="ml_inference")
     def _align_words_with_speakers(
         self, words: list[WordTimestamp], turns: list[dict[str, Any]]
     ) -> list[Utterance]:

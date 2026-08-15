@@ -234,7 +234,7 @@ async def test_export_transcript_errors() -> None:
     await repo.create(job_with_result)
 
     with pytest.raises(HTTPException) as exc_unsupported:
-        await export_transcript(job_id=job_with_result.id, export_format="invalid_format")  # type: ignore
+        await export_transcript(job_id=job_with_result.id, export_format="invalid_format")  # type: ignore[arg-type]
     assert exc_unsupported.value.status_code == 400
     assert "Unsupported export format" in exc_unsupported.value.detail
 
@@ -262,7 +262,9 @@ async def test_upload_audio_file_streaming_success(client: AsyncClient) -> None:
     file_content = b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00"
     files = {"file": ("test_stream.wav", file_content, "audio/wav")}
 
-    with patch("app.api.v1.endpoints.transcription._run_local_background_job", new_callable=AsyncMock):
+    with patch(
+        "app.api.v1.endpoints.transcription._run_local_background_job", new_callable=AsyncMock
+    ):
         resp = await client.post("/api/v1/transcription/upload", files=files)
         assert resp.status_code == 202
         data = resp.json()

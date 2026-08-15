@@ -137,9 +137,7 @@ def test_inference_engine_pyannote_loading_branches(monkeypatch: pytest.MonkeyPa
     mock_pipeline_class_err = MagicMock(
         from_pretrained=MagicMock(side_effect=RuntimeError("PyAnnote network error"))
     )
-    with patch.dict(
-        "sys.modules", {"pyannote.audio": MagicMock(Pipeline=mock_pipeline_class_err)}
-    ):
+    with patch.dict("sys.modules", {"pyannote.audio": MagicMock(Pipeline=mock_pipeline_class_err)}):
         engine._load_diarization_pipeline()
         assert engine.diarization_pipeline is None
 
@@ -412,7 +410,5 @@ def test_inference_engine_real_wav_features_and_clustering(tmp_path: Path) -> No
         "sklearn.cluster.AgglomerativeClustering.fit_predict",
         side_effect=RuntimeError("Clustering failed"),
     ):
-        labels_fallback = engine._cluster_acoustic_features(
-            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], 3
-        )
+        labels_fallback = engine._cluster_acoustic_features([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], 3)
         assert labels_fallback == [0, 1, 0]

@@ -221,6 +221,9 @@ split-on-trailing-comma = true
     "BLE001",
     "PLC0415",
 ]
+"app/core/profiler_cli.py" = [
+    "T201",
+]
 
 [tool.mypy]
 python_version = "3.12"

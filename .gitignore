@@ -133,5 +133,10 @@ hf_cache/
 *.err
 mermaid-filter.err
 
+# Profiling artifacts & dumps (cProfile, pstats, SnakeViz)
+profiles/
+*.prof
+*.pstats
+
 #vscode
 .vscode

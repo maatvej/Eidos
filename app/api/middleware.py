@@ -11,6 +11,14 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.profiler import DjangoProfilingMiddleware, FastAPIProfilingMiddleware
+
+
+__all__ = [
+    "DjangoProfilingMiddleware",
+    "FastAPIProfilingMiddleware",
+    "SecurityAndRateLimitMiddleware",
+]
 
 
 class SecurityAndRateLimitMiddleware(BaseHTTPMiddleware):

@@ -21,6 +21,7 @@ from app.api.v1.endpoints.auth import router as auth_router  # noqa: E402
 from app.api.v1.endpoints.events import router as events_router  # noqa: E402
 from app.api.v1.endpoints.transcription import router as transcription_router  # noqa: E402
 from app.core.config import settings  # noqa: E402
+from app.core.profiler import FastAPIProfilingMiddleware  # noqa: E402
 from app.core.security import DjangoUserSchema, get_current_django_user  # noqa: E402
 
 
@@ -28,6 +29,7 @@ from app.core.security import DjangoUserSchema, get_current_django_user  # noqa:
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan context manager initializing required application storage."""
     settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    settings.PROFILING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     yield
 
 
@@ -36,6 +38,9 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     lifespan=lifespan,
 )
+
+# Register profiling middleware for ASGI request profiling
+app.add_middleware(FastAPIProfilingMiddleware)
 
 
 @app.exception_handler(HTTPException)

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from app.core.logging import logger
 from app.core.metrics import ACTIVE_JOBS, PROCESSED_AUDIO_SECONDS
+from app.core.profiler import profile_worker_task
 from app.db.session import AsyncSessionLocal
 from app.domain.entities import JobStatus
 from app.ml.audio_processor import FFmpegAudioProcessor
@@ -27,6 +28,7 @@ async def startup(ctx: dict) -> None:
     ctx["llm"] = LLMIntelligenceEngine()
 
 
+@profile_worker_task(name="background_transcription_worker_pipeline", subfolder="workers")
 async def process_transcription_job(ctx: dict, job_id_str: str) -> None:
     """Async task orchestrator executing ingestion, VAD, Whisper, Diarization, and LLM extraction."""
     job_id = UUID(job_id_str)

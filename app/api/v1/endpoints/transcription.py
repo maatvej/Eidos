@@ -25,6 +25,7 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.profiler import profile_async, profile_sync
 from app.core.security import (
     DjangoUserSchema,
     RequirePermission,
@@ -54,6 +55,7 @@ async def _run_local_background_job(job_id_str: str) -> None:
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(RequirePermission("db.add_transcriptionjob"))],
 )
+@profile_async(name="transcription_upload_endpoint", subfolder="transcription")
 async def upload_audio_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
@@ -68,6 +70,7 @@ async def upload_audio_file(
     target_path = settings.STORAGE_DIR / f"{job_id}_{safe_filename}"
 
     # Asynchronously stream upload in chunks directly to disk to prevent RAM spikes and high latency
+    @profile_sync(name="audio_upload_chunking_stream", subfolder="transcription")
     def _write_file_stream() -> None:
         with open(target_path, "wb") as buffer:
             while True:

@@ -7,12 +7,14 @@ from pathlib import Path
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.profiler import profile_async, profile_sync
 from app.domain.exceptions import AudioProcessingError
 
 
 class FFmpegAudioProcessor:
     """Handles subprocess execution for audio conversion, dynamic loudness normalization, and denoising."""
 
+    @profile_sync(name="ffmpeg_filter_graph_builder", subfolder="audio")
     def _build_audio_filter_graph(self) -> str:
         """Constructs an optimized FFmpeg audio filter chain for speech clarity."""
         filters: list[str] = []
@@ -31,6 +33,7 @@ class FFmpegAudioProcessor:
 
         return ",".join(filters)
 
+    @profile_async(name="ffmpeg_audio_normalization", subfolder="audio")
     async def normalize_and_vad(self, input_path: Path, output_path: Path) -> Path:
         """Converts audio to 16kHz mono WAV PCM format with speech enhancement filters."""
         if not input_path.exists():
@@ -55,15 +58,17 @@ class FFmpegAudioProcessor:
         if filter_graph:
             cmd.extend(["-af", filter_graph])
 
-        cmd.extend([
-            "-ar",
-            "16000",
-            "-ac",
-            "1",
-            "-c:a",
-            "pcm_s16le",
-            str(output_path),
-        ])
+        cmd.extend(
+            [
+                "-ar",
+                "16000",
+                "-ac",
+                "1",
+                "-c:a",
+                "pcm_s16le",
+                str(output_path),
+            ]
+        )
 
         logger.info(f"Executing enhanced FFmpeg command: {' '.join(cmd)}")
 

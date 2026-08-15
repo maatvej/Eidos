@@ -66,6 +66,23 @@ class Settings(BaseSettings):
     LLM_MAX_TOKENS: int = 4096
     TORCH_NUM_THREADS: int = 4
 
+    # Comprehensive Profiling & Performance Diagnostics
+    PROFILING_ENABLED: bool = False
+    PROFILING_OUTPUT_DIR: Path = Path("./profiles")
+    PROFILING_SORT_BY: str = "cumulative"
+    PROFILING_RESTRICTION_LIMIT: int = 30
+    PROFILING_SLOW_THRESHOLD_MS: float = 0.0
+    PROFILING_EXCLUDE_PATHS: list[str] = [
+        "/static",
+        "/django-static",
+        "/health",
+        "/favicon.ico",
+        "/openapi.json",
+        "/docs",
+        "/redoc",
+    ]
+
 
 settings = Settings()
 settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+settings.PROFILING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

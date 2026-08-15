@@ -10,6 +10,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.core.profiler import profile_async, profile_sync
 from app.domain.entities import ActionItem, ConversationAnalysis
 from app.domain.exceptions import LLMServiceError
 
@@ -249,6 +250,7 @@ class LocalDynamicSummarizer:
         return clean_first or ("Обсуждение встречи" if is_russian else "Meeting Discussion")
 
     @classmethod
+    @profile_sync(name="lexrank_sentence_ranking", subfolder="llm")
     def _rank_sentences_lexrank(
         cls, sentences: list[str], vectors: list[dict[str, float]]
     ) -> list[float]:
@@ -469,6 +471,7 @@ class LLMIntelligenceEngine:
 
     MAX_CHUNK_CHARS: int = 8000
 
+    @profile_async(name="llm_intelligence_extraction", subfolder="llm")
     async def extract_intelligence(
         self, full_transcript_text: str, language: str = "auto"
     ) -> ConversationAnalysis:
@@ -509,6 +512,7 @@ class LLMIntelligenceEngine:
 
         return self._run_local_dynamic_summarizer(processed_text, is_russian)
 
+    @profile_async(name="llm_transcript_chunking", subfolder="llm")
     async def _prepare_transcript_text(self, text: str) -> str:
         """Chunks long transcripts asynchronously to fit context windows."""
         if len(text) <= self.MAX_CHUNK_CHARS:
@@ -664,6 +668,7 @@ class LLMIntelligenceEngine:
             overall_sentiment=sentiment,
         )
 
+    @profile_sync(name="local_dynamic_summarizer", subfolder="llm")
     def _run_local_dynamic_summarizer(self, text: str, is_russian: bool) -> ConversationAnalysis:
         """Runs the dynamic local extractive summarizer on actual transcript content."""
         sentences = LocalDynamicSummarizer.split_into_sentences(text)
