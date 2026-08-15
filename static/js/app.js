@@ -183,10 +183,28 @@ router
   })
 
   // Deep Links to Specific Job / Transcription (Uploading / Completed State)
+  .addRoute("/job/:jobId", async (context) => {
+    switchView("studio");
+    const jobId = context.params.jobId;
+    globalStore.setState({ currentRoute: `/job/${jobId}` });
+    await hydrateJob(jobId, {
+      seekTime: context.query.t,
+      searchQuery: context.query.q,
+    });
+  })
   .addRoute("/jobs/:jobId", async (context) => {
     switchView("studio");
     const jobId = context.params.jobId;
     globalStore.setState({ currentRoute: `/jobs/${jobId}` });
+    await hydrateJob(jobId, {
+      seekTime: context.query.t,
+      searchQuery: context.query.q,
+    });
+  })
+  .addRoute("/transcription/:jobId", async (context) => {
+    switchView("studio");
+    const jobId = context.params.jobId;
+    globalStore.setState({ currentRoute: `/transcription/${jobId}` });
     await hydrateJob(jobId, {
       seekTime: context.query.t,
       searchQuery: context.query.q,

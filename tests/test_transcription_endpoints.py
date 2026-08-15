@@ -179,6 +179,77 @@ async def test_bulk_rename_speaker_errors(client: AsyncClient) -> None:
     )
     assert resp_unknown_speaker.status_code == 404
 
+    # 3. Missing both body and params -> 400 Bad Request
+    resp_missing_args = await client.post(
+        f"/api/v1/transcription/jobs/{job_with_res.id}/speaker-rename"
+    )
+    assert resp_missing_args.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_bulk_rename_speaker_success_json_and_query(client: AsyncClient, test_user) -> None:
+    """Validates successful bulk speaker renaming with JSON payload and query params with ORM sync."""
+    from asgiref.sync import sync_to_async
+
+    from app.db.models import Transcription, TranscriptionStatus
+
+    job_id = uuid4()
+    job = TranscriptionJobEntity(
+        id=job_id,
+        filename="meeting.wav",
+        file_path="/tmp/meeting.wav",
+        status=JobStatus.COMPLETED,
+        result=TranscriptionResult(
+            utterances=[
+                Utterance(speaker="SPEAKER_00", start=0.0, end=1.5, text="Hello everyone!"),
+                Utterance(speaker="SPEAKER_01", start=1.6, end=3.0, text="Welcome!"),
+            ],
+            duration_seconds=3.0,
+        ),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    repo = JobRepository()
+    await repo.create(job)
+
+    # Also create linked Transcription ORM record
+    trans_orm = await sync_to_async(Transcription.objects.create)(
+        id=job_id,
+        user=test_user,
+        title="meeting.wav",
+        original_filename="meeting.wav",
+        file_path="/tmp/meeting.wav",
+        status=TranscriptionStatus.COMPLETED,
+        duration_seconds=3.0,
+        transcription_text="SPEAKER_00: Hello everyone!\n\nSPEAKER_01: Welcome!",
+    )
+
+    # 1. Rename SPEAKER_00 to "Alice" via JSON payload
+    resp_json = await client.post(
+        f"/api/v1/transcription/jobs/{job_id}/speaker-rename",
+        json={"old_speaker_label": "SPEAKER_00", "new_speaker_name": "Alice"},
+    )
+    assert resp_json.status_code == 200
+    data = resp_json.json()
+    assert data["result"]["utterances"][0]["speaker"] == "Alice"
+    assert data["result"]["utterances"][1]["speaker"] == "SPEAKER_01"
+
+    # Verify ORM model updated
+    updated_trans = await sync_to_async(Transcription.objects.get)(id=job_id)
+    assert "Alice: Hello everyone!" in updated_trans.transcription_text
+
+    # 2. Rename SPEAKER_01 to "Bob" via query params
+    resp_query = await client.post(
+        f"/api/v1/transcription/jobs/{job_id}/speaker-rename",
+        params={"old_speaker_label": "SPEAKER_01", "new_speaker_name": "Bob"},
+    )
+    assert resp_query.status_code == 200
+    data_query = resp_query.json()
+    assert data_query["result"]["utterances"][1]["speaker"] == "Bob"
+
+    updated_trans2 = await sync_to_async(Transcription.objects.get)(id=job_id)
+    assert "Bob: Welcome!" in updated_trans2.transcription_text
+
 
 @pytest.mark.asyncio
 async def test_export_transcript_all_formats(

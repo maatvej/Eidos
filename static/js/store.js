@@ -440,9 +440,37 @@ export async function hydrateJob(jobId, options = {}) {
 
       // Reconstruct transcript object if only transcription_text & metadata are present
       if (statusLower === "completed" && historyData.transcription_text) {
+        const rawBlocks = historyData.transcription_text.split(/\n\n+/);
+        const parsedUtterances = rawBlocks
+          .map((block, idx) => {
+            const colonIdx = block.indexOf(":");
+            if (colonIdx > 0 && colonIdx < 50) {
+              const speaker = block.substring(0, colonIdx).trim();
+              const text = block.substring(colonIdx + 1).trim();
+              return {
+                id: `synth_${idx}`,
+                speaker: speaker || "Спикер",
+                text: text || block.trim(),
+                start: 0.0,
+                end: historyData.duration_seconds || 0.0,
+                words: [],
+              };
+            }
+            return {
+              id: `synth_${idx}`,
+              speaker: "Спикер",
+              text: block.trim(),
+              start: 0.0,
+              end: historyData.duration_seconds || 0.0,
+              words: [],
+            };
+          })
+          .filter((u) => u.text.length > 0);
+
         const synthesizedResult = {
-          utterances: [
+          utterances: parsedUtterances.length > 0 ? parsedUtterances : [
             {
+              id: "synth_0",
               speaker: "Спикер",
               text: historyData.transcription_text,
               start: 0.0,

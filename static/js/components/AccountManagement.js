@@ -936,9 +936,9 @@ export class AccountManagement extends HTMLElement {
           <td>
             <div class="actions-cell">
               <button class="btn btn-primary btn-sm studio-btn" data-id="${item.id}" title="Открыть в интерактивной студии">
-                Студия
+                Студия / Детали
               </button>
-              <button class="btn btn-secondary btn-sm view-btn" data-id="${item.id}" title="Просмотреть детали">
+              <button class="btn btn-secondary btn-sm view-btn" data-id="${item.id}" title="Открыть интерактивную стенограмму">
                 Детали
               </button>
               <button class="btn btn-danger btn-sm delete-btn" data-id="${item.id}" title="Удалить запись">
@@ -964,17 +964,10 @@ export class AccountManagement extends HTMLElement {
     if (nextBtn) nextBtn.disabled = this.pagination.page >= this.pagination.total_pages;
 
     // Attach row button listeners
-    tbody.querySelectorAll(".studio-btn").forEach((btn) => {
+    tbody.querySelectorAll(".studio-btn, .view-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.getAttribute("data-id");
         router.navigate(`/jobs/${id}`);
-      });
-    });
-
-    tbody.querySelectorAll(".view-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.getAttribute("data-id");
-        this.openDetailModal(id, true);
       });
     });
 

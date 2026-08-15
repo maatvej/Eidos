@@ -22,6 +22,8 @@ export class TranscriptPlayer extends HTMLElement {
     this.currentStatus = null;
     this.currentTranscript = null;
     this.activeWordSpans = new Set();
+    this.targetOldSpeaker = null;
+    this.isRenaming = false;
   }
 
   connectedCallback() {
@@ -99,6 +101,119 @@ export class TranscriptPlayer extends HTMLElement {
     }
     const index = Math.abs(hash) % palette.length;
     return palette[index];
+  }
+
+  getUniqueSpeakers(utterances) {
+    if (!utterances || !Array.isArray(utterances)) return [];
+    const seen = new Set();
+    const result = [];
+    utterances.forEach((u) => {
+      const spk = u.speaker || "Спикер";
+      if (!seen.has(spk)) {
+        seen.add(spk);
+        result.push(spk);
+      }
+    });
+    return result;
+  }
+
+  openSpeakerRenameModal(speakerName) {
+    this.targetOldSpeaker = speakerName;
+    const modal = this.shadowRoot.getElementById("speakerRenameModalOverlay");
+    const oldNameEl = this.shadowRoot.getElementById("modalOldSpeakerName");
+    const inputEl = this.shadowRoot.getElementById("newSpeakerNameInput");
+
+    if (oldNameEl) oldNameEl.textContent = `«${speakerName}»`;
+    if (inputEl) {
+      inputEl.value = speakerName;
+      setTimeout(() => {
+        inputEl.focus();
+        inputEl.select();
+      }, 50);
+    }
+    if (modal) {
+      modal.classList.add("open");
+    }
+  }
+
+  closeSpeakerRenameModal() {
+    this.targetOldSpeaker = null;
+    const modal = this.shadowRoot.getElementById("speakerRenameModalOverlay");
+    if (modal) {
+      modal.classList.remove("open");
+    }
+  }
+
+  async executeSpeakerRename(newName) {
+    const cleanNewName = (newName || "").trim();
+    if (!cleanNewName) {
+      showToast("Имя спикера не может быть пустым", "error");
+      return;
+    }
+
+    const oldName = this.targetOldSpeaker;
+    if (!oldName) {
+      this.closeSpeakerRenameModal();
+      return;
+    }
+
+    if (oldName === cleanNewName) {
+      this.closeSpeakerRenameModal();
+      return;
+    }
+
+    const saveBtn = this.shadowRoot.getElementById("saveSpeakerModalBtn");
+    const btnText = this.shadowRoot.getElementById("saveSpeakerBtnText");
+    if (saveBtn) saveBtn.disabled = true;
+    if (btnText) btnText.textContent = "Сохранение...";
+
+    try {
+      const jobId = this.currentJobId;
+      if (jobId) {
+        const res = await fetch(`/api/v1/transcription/jobs/${jobId}/speaker-rename`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            old_speaker_label: oldName,
+            new_speaker_name: cleanNewName,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Не удалось сохранить новое имя спикера.");
+        }
+
+        const updatedJob = await res.json();
+        if (updatedJob.result) {
+          globalStore.setState({ transcript: updatedJob.result });
+          showToast(`Спикер «${oldName}» успешно переименован в «${cleanNewName}»`, "success");
+        }
+      } else {
+        // Local in-memory rename
+        const current = globalStore.state.transcript;
+        if (current && current.utterances) {
+          const cloned = JSON.parse(JSON.stringify(current));
+          cloned.utterances.forEach((u) => {
+            if (u.speaker === oldName) {
+              u.speaker = cleanNewName;
+            }
+          });
+          globalStore.setState({ transcript: cloned });
+          showToast(`Спикер «${oldName}» переименован в «${cleanNewName}»`, "success");
+        }
+      }
+
+      this.closeSpeakerRenameModal();
+    } catch (err) {
+      console.error("[TranscriptPlayer] Speaker rename error:", err);
+      showToast(err.message || "Ошибка при переименовании спикера", "error");
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      if (btnText) btnText.textContent = "Сохранить";
+    }
   }
 
   handleStateUpdate(state) {
@@ -437,6 +552,65 @@ export class TranscriptPlayer extends HTMLElement {
           transform: translateY(-1px);
         }
 
+        /* Speakers Management Toolbar */
+        .speakers-bar {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 10px;
+          margin-bottom: 20px;
+          padding: 10px 14px;
+          background: var(--bg-surface-elevated, rgba(255, 255, 255, 0.04));
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+          border-radius: var(--radius-md, 12px);
+        }
+
+        .speakers-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.8rem;
+          font-weight: 700;
+          color: var(--text-secondary, #94a3b8);
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+
+        .speaker-chips-list {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .speaker-chip-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.825rem;
+          font-weight: 700;
+          padding: 5px 12px;
+          border-radius: 9999px;
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          user-select: none;
+        }
+
+        .speaker-chip-btn:hover {
+          transform: translateY(-1px) scale(1.03);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+          filter: brightness(1.15);
+        }
+
+        .speaker-chip-btn .edit-icon {
+          opacity: 0.7;
+          transition: opacity 0.15s ease;
+        }
+
+        .speaker-chip-btn:hover .edit-icon {
+          opacity: 1;
+        }
+
         /* Utterance Blocks */
         .transcript-container {
           display: flex;
@@ -473,6 +647,214 @@ export class TranscriptPlayer extends HTMLElement {
           align-items: center;
           gap: 6px;
           user-select: none;
+        }
+
+        .speaker-tag-clickable {
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .speaker-tag-clickable:hover {
+          transform: scale(1.03);
+          filter: brightness(1.15);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .speaker-tag-clickable .edit-mini-icon {
+          opacity: 0.6;
+          transition: opacity 0.15s ease;
+        }
+
+        .speaker-tag-clickable:hover .edit-mini-icon {
+          opacity: 1;
+        }
+
+        /* Speaker Rename Modal */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+          padding: 16px;
+          box-sizing: border-box;
+        }
+
+        .modal-overlay.open {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        .modal-card {
+          background: var(--bg-surface-elevated, #1e293b);
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.14));
+          border-radius: var(--radius-lg, 18px);
+          padding: 24px;
+          width: 100%;
+          max-width: 440px;
+          box-shadow: var(--shadow-lg, 0 20px 45px rgba(0, 0, 0, 0.6));
+          transform: scale(0.95);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+          color: var(--text-primary, #f8fafc);
+        }
+
+        .modal-overlay.open .modal-card {
+          transform: scale(1);
+        }
+
+        .modal-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+
+        .modal-title {
+          font-size: 1.15rem;
+          font-weight: 800;
+          margin: 0;
+          color: var(--text-primary, #f8fafc);
+        }
+
+        .modal-close-btn {
+          background: transparent;
+          border: none;
+          color: var(--text-muted, #94a3b8);
+          cursor: pointer;
+          font-size: 1.35rem;
+          line-height: 1;
+          padding: 4px 8px;
+          border-radius: 6px;
+          transition: color 0.15s ease, background 0.15s ease;
+        }
+
+        .modal-close-btn:hover {
+          color: var(--text-primary, #f8fafc);
+          background: rgba(255, 255, 255, 0.08);
+        }
+
+        .modal-desc {
+          font-size: 0.875rem;
+          color: var(--text-secondary, #94a3b8);
+          margin-bottom: 16px;
+          line-height: 1.5;
+        }
+
+        .modal-desc #modalOldSpeakerName {
+          font-weight: 700;
+          color: var(--primary, #818cf8);
+        }
+
+        .modal-input-group {
+          margin-bottom: 14px;
+        }
+
+        .modal-input {
+          width: 100%;
+          box-sizing: border-box;
+          background: var(--bg-card-subtle, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+          border-radius: var(--radius-md, 10px);
+          padding: 10px 14px;
+          color: var(--text-primary, #f8fafc);
+          font-size: 0.95rem;
+          font-family: inherit;
+          outline: none;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .modal-input:focus {
+          border-color: var(--primary, #6366f1);
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+
+        .suggestions-title {
+          font-size: 0.75rem;
+          font-weight: 700;
+          color: var(--text-muted, #94a3b8);
+          margin-bottom: 6px;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+        }
+
+        .suggestions-chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 20px;
+        }
+
+        .suggestion-chip {
+          background: var(--bg-card-subtle, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+          color: var(--text-secondary, #cbd5e1);
+          padding: 4px 10px;
+          border-radius: 9999px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          user-select: none;
+        }
+
+        .suggestion-chip:hover {
+          background: var(--primary-light, rgba(99, 102, 241, 0.2));
+          border-color: var(--primary, #6366f1);
+          color: var(--text-primary, #ffffff);
+          transform: translateY(-1px);
+        }
+
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+
+        .modal-btn {
+          padding: 9px 18px;
+          border-radius: var(--radius-sm, 8px);
+          font-size: 0.875rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+          font-family: inherit;
+        }
+
+        .modal-btn-cancel {
+          background: var(--bg-card-subtle, rgba(255, 255, 255, 0.06));
+          border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+          color: var(--text-primary, #f8fafc);
+        }
+
+        .modal-btn-cancel:hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-btn-primary {
+          background: var(--primary-gradient, linear-gradient(135deg, #6366f1, #a855f7));
+          color: #ffffff;
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+        }
+
+        .modal-btn-primary:hover:not(:disabled) {
+          opacity: 0.95;
+          transform: translateY(-1px);
+        }
+
+        .modal-btn-primary:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
         }
 
         .time-badge {
@@ -601,6 +983,7 @@ export class TranscriptPlayer extends HTMLElement {
     }
 
     const utterances = state.transcript.utterances || [];
+    const speakers = this.getUniqueSpeakers(utterances);
     const audioUrl = state.jobId ? `/api/v1/transcription/jobs/${state.jobId}/audio` : "";
     const lang = (state.transcript.detected_language || "ru").toUpperCase();
     const displayTitle =
@@ -645,6 +1028,46 @@ export class TranscriptPlayer extends HTMLElement {
       </div>
 
       ${
+        speakers.length > 0
+          ? `
+        <div class="speakers-bar">
+          <span class="speakers-label">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:inline-block; vertical-align:middle;">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Спикеры:
+          </span>
+          <div class="speaker-chips-list">
+            ${speakers
+              .map((spk) => {
+                const col = this.getSpeakerColor(spk);
+                return `
+                  <button
+                    type="button"
+                    class="speaker-chip-btn"
+                    data-speaker-name="${spk}"
+                    title="Нажмите, чтобы переименовать ${spk}"
+                    style="background: ${col.bg}; color: ${col.text}; border: 1px solid ${col.border};"
+                  >
+                    <span class="speaker-chip-name">${spk}</span>
+                    <svg class="edit-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                  </button>
+                `;
+              })
+              .join("")}
+          </div>
+        </div>
+      `
+          : ""
+      }
+
+      ${
         audioUrl
           ? `
         <div class="audio-player-card">
@@ -657,6 +1080,44 @@ export class TranscriptPlayer extends HTMLElement {
       <div class="transcript-container">
         ${utterances.map((utt) => this.renderUtterance(utt, state.currentTime)).join("")}
       </div>
+
+      <!-- Speaker Rename Modal Dialog -->
+      <div class="modal-overlay" id="speakerRenameModalOverlay" role="dialog" aria-modal="true" aria-labelledby="speakerModalTitle">
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3 class="modal-title" id="speakerModalTitle">Переименовать спикера</h3>
+            <button class="modal-close-btn" id="closeSpeakerModalBtn" aria-label="Закрыть">✕</button>
+          </div>
+          <p class="modal-desc">
+            Заменит имя <span id="modalOldSpeakerName">«Спикер»</span> на новое имя во всей стенограмме и сохранит в базе данных.
+          </p>
+          <div class="modal-input-group">
+            <input
+              type="text"
+              id="newSpeakerNameInput"
+              class="modal-input"
+              placeholder="Введите имя (например, Иван Иванов)"
+              maxlength="100"
+            />
+          </div>
+          <div class="suggestions-title">Быстрые варианты:</div>
+          <div class="suggestions-chips">
+            <button type="button" class="suggestion-chip" data-suggestion="Интервьюер">Интервьюер</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Респондент">Респондент</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Ведущий">Ведущий</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Клиент">Клиент</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Менеджер">Менеджер</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Спикер 1">Спикер 1</button>
+            <button type="button" class="suggestion-chip" data-suggestion="Спикер 2">Спикер 2</button>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="modal-btn modal-btn-cancel" id="cancelSpeakerModalBtn">Отмена</button>
+            <button type="button" class="modal-btn modal-btn-primary" id="saveSpeakerModalBtn">
+              <span id="saveSpeakerBtnText">Сохранить</span>
+            </button>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -666,11 +1127,16 @@ export class TranscriptPlayer extends HTMLElement {
       <div class="utterance-block" data-utt-id="${utt.id}">
         <div class="speaker-header">
           <span
-            class="speaker-tag"
+            class="speaker-tag speaker-tag-clickable"
             data-speaker="${utt.speaker}"
+            title="Нажмите, чтобы переименовать спикера"
             style="background: ${color.bg}; color: ${color.text}; border: 1px solid ${color.border};"
           >
-            ${utt.speaker}
+            <span>${utt.speaker}</span>
+            <svg class="edit-mini-icon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
           </span>
           <span class="time-badge">${utt.start.toFixed(1)}с — ${utt.end.toFixed(1)}с</span>
         </div>
@@ -771,6 +1237,69 @@ export class TranscriptPlayer extends HTMLElement {
         if (state.jobId) {
           window.open(`/api/v1/transcription/jobs/${state.jobId}/export?export_format=${fmt}`, "_blank");
           showToast(`Экспорт в формате ${fmt.toUpperCase()} запущен`, "info");
+        }
+      });
+    });
+
+    // Speaker click -> Open rename modal
+    this.shadowRoot.querySelectorAll(".speaker-chip-btn, .speaker-tag-clickable").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const spkName = el.getAttribute("data-speaker-name") || el.getAttribute("data-speaker");
+        if (spkName) {
+          this.openSpeakerRenameModal(spkName);
+        }
+      });
+    });
+
+    // Speaker Rename Modal Listeners
+    const modalOverlay = this.shadowRoot.getElementById("speakerRenameModalOverlay");
+    const closeBtn = this.shadowRoot.getElementById("closeSpeakerModalBtn");
+    const cancelBtn = this.shadowRoot.getElementById("cancelSpeakerModalBtn");
+    const saveBtn = this.shadowRoot.getElementById("saveSpeakerModalBtn");
+    const nameInput = this.shadowRoot.getElementById("newSpeakerNameInput");
+
+    if (modalOverlay) {
+      modalOverlay.addEventListener("click", (e) => {
+        if (e.target === modalOverlay) {
+          this.closeSpeakerRenameModal();
+        }
+      });
+    }
+
+    if (closeBtn) {
+      closeBtn.addEventListener("click", () => this.closeSpeakerRenameModal());
+    }
+
+    if (cancelBtn) {
+      cancelBtn.addEventListener("click", () => this.closeSpeakerRenameModal());
+    }
+
+    if (saveBtn && nameInput) {
+      saveBtn.addEventListener("click", () => {
+        this.executeSpeakerRename(nameInput.value);
+      });
+    }
+
+    if (nameInput) {
+      nameInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          this.executeSpeakerRename(nameInput.value);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          this.closeSpeakerRenameModal();
+        }
+      });
+    }
+
+    // Quick suggestion chips
+    this.shadowRoot.querySelectorAll(".suggestion-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const suggestion = chip.getAttribute("data-suggestion");
+        if (suggestion && nameInput) {
+          nameInput.value = suggestion;
+          nameInput.focus();
         }
       });
     });

@@ -66,3 +66,20 @@ class PaginatedTranscriptionListResponse(BaseModel):
     page: int
     limit: int
     total_pages: int
+
+
+class SpeakerRenameRequest(BaseModel):
+    """Schema for bulk speaker renaming request payload."""
+
+    old_speaker_label: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Existing speaker identifier or label to be replaced.",
+    )
+    new_speaker_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="New human-readable speaker name or alias.",
+    )

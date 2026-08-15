@@ -35,6 +35,7 @@ from app.db.models import Transcription
 from app.domain.entities import JobStatus, TranscriptionJobEntity
 from app.domain.exceptions import JobNotFoundError
 from app.repository.job_repository import JobRepository
+from app.schemas.account import SpeakerRenameRequest
 from app.services.export_service import ExportService
 from app.workers.tasks import process_transcription_job, startup
 
@@ -205,11 +206,24 @@ async def cancel_job(
 )
 async def bulk_rename_speaker(
     job_id: UUID,
-    old_speaker_label: str,
-    new_speaker_name: str,
+    payload: SpeakerRenameRequest | None = None,
+    old_speaker_label: str | None = None,
+    new_speaker_name: str | None = None,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> TranscriptionJobEntity:
-    """Globally renames speaker tags across the entire transcript."""
+    """Globally renames speaker tags across the entire transcript.
+
+    Supports both JSON body payload and URL query parameters for full interoperability.
+    """
+    target_old = (payload.old_speaker_label if payload else old_speaker_label) or ""
+    target_new = (payload.new_speaker_name if payload else new_speaker_name) or ""
+
+    if not target_old.strip() or not target_new.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both 'old_speaker_label' and 'new_speaker_name' must be provided.",
+        )
+
     repo = JobRepository()
     job = await repo.get_by_id(job_id)
 
@@ -221,14 +235,14 @@ async def bulk_rename_speaker(
 
     renamed_count = 0
     for utt in job.result.utterances:
-        if utt.speaker == old_speaker_label:
-            utt.speaker = new_speaker_name
+        if utt.speaker == target_old:
+            utt.speaker = target_new
             renamed_count += 1
 
     if renamed_count == 0:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No utterances found matching speaker label '{old_speaker_label}'.",
+            detail=f"No utterances found matching speaker label '{target_old}'.",
         )
 
     await repo.update_progress(

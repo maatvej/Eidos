@@ -131,6 +131,41 @@ async def test_job_repository_crud_and_sync(test_user, sample_result: Transcript
         await repo.update_progress(random_id, JobStatus.FAILED, 0.0, "Error")
 
 
+def test_format_speaker_transcription_helpers() -> None:
+    """Validates format_speaker_transcription with various speech patterns and edge cases."""
+    from app.repository.job_repository import format_speaker_transcription
+
+    # 1. Empty utterances list
+    assert format_speaker_transcription([]) == ""
+
+    # 2. Utterances with blank text
+    blank_utt = [
+        Utterance(speaker="Alice", start=0.0, end=1.0, text="   "),
+        Utterance(speaker="Bob", start=1.0, end=2.0, text=""),
+    ]
+    assert format_speaker_transcription(blank_utt) == ""
+
+    # 3. Utterances without speaker name
+    no_speaker_utt = [
+        Utterance(speaker="", start=0.0, end=1.0, text="Unattributed sentence."),
+        Utterance(speaker="   ", start=1.0, end=2.0, text="Second unattributed sentence."),
+    ]
+    assert (
+        format_speaker_transcription(no_speaker_utt)
+        == "Unattributed sentence.\n\nSecond unattributed sentence."
+    )
+
+    # 4. Normal speaker blocks
+    multi_speaker_utt = [
+        Utterance(speaker="Спикер 1", start=0.0, end=1.0, text="Привет!"),
+        Utterance(speaker="Спикер 2", start=1.0, end=2.0, text="Добрый день!"),
+    ]
+    assert (
+        format_speaker_transcription(multi_speaker_utt)
+        == "Спикер 1: Привет!\n\nСпикер 2: Добрый день!"
+    )
+
+
 def test_export_service_formatting_and_renders(sample_result: TranscriptionResult) -> None:
     """Validates ExportService TXT, SRT, VTT, DOCX, and PDF renders."""
     service = ExportService()

@@ -8,8 +8,42 @@ from asgiref.sync import sync_to_async
 
 from app.core.logging import logger
 from app.db.models import Transcription, TranscriptionJob
-from app.domain.entities import JobStatus, TranscriptionJobEntity, TranscriptionResult
+from app.domain.entities import JobStatus, TranscriptionJobEntity, TranscriptionResult, Utterance
 from app.domain.exceptions import JobNotFoundError
+
+
+def format_speaker_transcription(utterances: list[Utterance]) -> str:
+    """Formats a list of utterances into a structured speaker-separated transcript text.
+
+    Args:
+        utterances: Sequence of speech utterance domain entities.
+
+    Returns:
+        Structured multiline transcript string formatted with speaker names and speech turns.
+
+    Example:
+        >>> format_speaker_transcription(
+        ...     [
+        ...         Utterance(speaker="Спикер 1", start=0.0, end=2.0, text="Привет всем!"),
+        ...         Utterance(speaker="Спикер 2", start=2.1, end=4.0, text="Добрый день!"),
+        ...     ]
+        ... )
+        'Спикер 1: Привет всем!\\n\\nСпикер 2: Добрый день!'
+    """
+    if not utterances:
+        return ""
+
+    formatted_blocks: list[str] = []
+    for utt in utterances:
+        clean_text = utt.text.strip()
+        if not clean_text:
+            continue
+        if utt.speaker and utt.speaker.strip():
+            formatted_blocks.append(f"{utt.speaker.strip()}: {clean_text}")
+        else:
+            formatted_blocks.append(clean_text)
+
+    return "\n\n".join(formatted_blocks)
 
 
 class JobRepository:
@@ -90,8 +124,8 @@ class JobRepository:
             trans_model.status = status.value.lower()
             trans_model.updated_at = datetime.now(UTC)
             if result:
-                full_text = " ".join([u.text for u in result.utterances])
-                trans_model.transcription_text = full_text
+                formatted_text = format_speaker_transcription(result.utterances)
+                trans_model.transcription_text = formatted_text
                 trans_model.duration_seconds = result.duration_seconds
                 trans_model.language = result.detected_language or trans_model.language
 
