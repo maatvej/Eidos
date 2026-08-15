@@ -201,38 +201,8 @@ export const StorageHelper = {
   },
 };
 
-// Compute initial state from persistent storage if available
+// Compute default idle job state for clean application initialization
 const getInitialJobState = () => {
-  const saved = StorageHelper.getSavedJobState();
-  if (saved && saved.jobId) {
-    return {
-      jobId: saved.jobId,
-      status: saved.status || "IDLE",
-      progress: typeof saved.progress === "number" ? saved.progress : 0,
-      stepMessage: saved.stepMessage || "",
-      transcript: saved.transcript || null,
-      errorMessage: saved.errorMessage || null,
-      currentTime: typeof saved.currentTime === "number" ? saved.currentTime : 0.0,
-      initialAudioTime: typeof saved.initialAudioTime === "number" ? saved.initialAudioTime : 0.0,
-      initialSearchQuery: saved.initialSearchQuery || "",
-    };
-  }
-
-  const activeJobId = StorageHelper.getActiveJob();
-  if (activeJobId) {
-    return {
-      jobId: activeJobId,
-      status: "LOADING",
-      progress: 10,
-      stepMessage: "Восстановление состояния...",
-      transcript: null,
-      errorMessage: null,
-      currentTime: 0.0,
-      initialAudioTime: 0.0,
-      initialSearchQuery: "",
-    };
-  }
-
   return {
     jobId: null,
     status: "IDLE",
@@ -256,6 +226,27 @@ export const globalStore = new Store({
   theme: getInitialTheme(),
   user: null,
 });
+
+/**
+ * Resets active job state to default empty/idle state for the main upload page.
+ *
+ * Example:
+ *   resetJobState();
+ */
+export function resetJobState() {
+  StorageHelper.clearActiveJob();
+  globalStore.setState({
+    jobId: null,
+    status: "IDLE",
+    progress: 0,
+    stepMessage: "",
+    transcript: null,
+    errorMessage: null,
+    currentTime: 0.0,
+    initialAudioTime: 0.0,
+    initialSearchQuery: "",
+  });
+}
 
 // Automatically synchronize state changes to persistent storage
 globalStore.subscribe(

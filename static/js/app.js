@@ -11,6 +11,7 @@ import {
   applyTheme,
   StorageHelper,
   hydrateJob,
+  resetJobState,
 } from "./store.js";
 import { router } from "./router.js";
 
@@ -71,10 +72,10 @@ function switchView(targetView) {
     viewToggleBtn.setAttribute("aria-pressed", isAccount ? "true" : "false");
     viewToggleBtn.setAttribute(
       "aria-label",
-      isAccount ? "Вернуться в Студию" : "Переключить в Личный кабинет"
+      isAccount ? "Вернуться на Главную (Студия)" : "Переключить в Личный кабинет"
     );
     if (viewToggleBtn.tagName === "A") {
-      viewToggleBtn.setAttribute("href", isAccount ? "/studio" : "/account");
+      viewToggleBtn.setAttribute("href", isAccount ? "/" : "/account");
     }
   }
 
@@ -91,12 +92,7 @@ if (viewToggleBtn) {
   viewToggleBtn.addEventListener("click", (e) => {
     e.preventDefault();
     if (globalStore.state.currentView === "account") {
-      const activeJob = StorageHelper.getActiveJob();
-      if (activeJob) {
-        router.navigate(`/jobs/${activeJob}`);
-      } else {
-        router.navigate("/studio");
-      }
+      router.navigate("/");
     } else {
       router.navigate("/account/history");
     }
@@ -169,42 +165,24 @@ globalStore.subscribe((state) => {
 
 // Configure Client-Side Routes
 router
-  // Main Studio & Dashboard Routes
-  .addRoute("/", async (context) => {
+  // Main Studio & Dashboard Routes (Clean Empty State waiting for file upload)
+  .addRoute("/", async () => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/" });
-    const activeJob = StorageHelper.getActiveJob();
-    if (activeJob) {
-      await hydrateJob(activeJob, {
-        seekTime: context.query.t,
-        searchQuery: context.query.q,
-      });
-    }
+    resetJobState();
   })
-  .addRoute("/studio", async (context) => {
+  .addRoute("/studio", async () => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/studio" });
-    const activeJob = StorageHelper.getActiveJob();
-    if (activeJob) {
-      await hydrateJob(activeJob, {
-        seekTime: context.query.t,
-        searchQuery: context.query.q,
-      });
-    }
+    resetJobState();
   })
-  .addRoute("/dashboard", async (context) => {
+  .addRoute("/dashboard", async () => {
     switchView("studio");
     globalStore.setState({ currentRoute: "/dashboard" });
-    const activeJob = StorageHelper.getActiveJob();
-    if (activeJob) {
-      await hydrateJob(activeJob, {
-        seekTime: context.query.t,
-        searchQuery: context.query.q,
-      });
-    }
+    resetJobState();
   })
 
-  // Deep Links to Specific Job / Transcription
+  // Deep Links to Specific Job / Transcription (Uploading / Completed State)
   .addRoute("/jobs/:jobId", async (context) => {
     switchView("studio");
     const jobId = context.params.jobId;
@@ -271,7 +249,7 @@ router.setNotFoundHandler((pathname, context) => {
   if (pathname.startsWith("/account")) {
     router.navigate("/account/history", { replace: true });
   } else {
-    router.navigate("/studio", { replace: true });
+    router.navigate("/", { replace: true });
   }
 });
 
