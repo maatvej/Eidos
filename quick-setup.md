@@ -9,15 +9,19 @@
    - **Windows** (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"` или `winget install astral-sh.uv`
    - **Linux / macOS**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
    - **Pip / универсально**: `pip install uv`
-3. **FFmpeg** (рекомендуется для нормализации и обработки аудиопотоков):
+3. **Node.js (18+) и npm** (необходимы для установки зависимостей, сборки и разработки React 19 + TypeScript SPA в директории [`frontend/`](frontend/package.json:1)):
+   - **Windows**: `winget install OpenJS.NodeJS` или скачайте с [nodejs.org](https://nodejs.org)
+   - **Ubuntu / Debian**: `sudo apt update && sudo apt install -y nodejs npm`
+   - **macOS**: `brew install node`
+4. **FFmpeg** (рекомендуется для нормализации и обработки аудиопотоков):
    - **Windows** (winget / choco): `winget install Gyan.FFmpeg` или `choco install ffmpeg`
-   - **Ubuntu/Debian**: `sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1`
+   - **Ubuntu / Debian**: `sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1`
    - **macOS**: `brew install ffmpeg`
-4. **Git** с настроенным доступом к репозиторию.
+5. **Git** с настроенным доступом к репозиторию.
 
 ---
 
-### 2. Клонирование и настройка виртуального окружения через `uv`
+### 2. Клонирование репозитория и установка зависимостей
 
 Выполните в терминале:
 
@@ -26,11 +30,14 @@
 git clone https://github.com/maatvej/Eidos.git
 cd Eidos
 
-# Создание виртуального окружения и синхронизация всех зависимостей проекта по uv.lock
+# 1. Создание виртуального окружения и установка бэкенд-зависимостей через uv
 uv sync
+
+# 2. Установка зависимостей фронтенда React SPA
+npm --prefix frontend install
 ```
 
-При необходимости активировать изолированное окружение вручную:
+При необходимости активировать изолированное виртуальное окружение Python вручную:
 ```bash
 # Linux / macOS:
 source .venv/bin/activate
@@ -43,9 +50,13 @@ source .venv/bin/activate
 
 ### 3. Сборка проекта (Build)
 
-Сборка дистрибутива пакета (`wheel` и `sdist`) через `uv`:
+Для работы веб-интерфейса через объединенный сервер FastAPI скомпилируйте продакшн-бандл React SPA:
 
 ```bash
+# Сборка React 19 + TypeScript фронтенда в frontend/dist/
+npm --prefix frontend run build
+
+# Сборка дистрибутива Python пакета (wheel и sdist) через uv (опционально)
 uv build
 ```
 
@@ -76,18 +87,43 @@ LLM_MODEL_NAME=gpt-4o
 
 ---
 
-### 5. Запуск локального сервера (FastAPI + Django)
+### 5. Режимы локального запуска
 
-Для быстрого запуска без внешних сервисов (Docker, Redis, PostgreSQL) предусмотрен скрипт [`run_local.py`](run_local.py:1). Функция [`run_local.main()`](run_local.py:34) автоматически:
-- Проверяет наличие утилиты через [`run_local.check_ffmpeg()`](run_local.py:21).
+Платформа поддерживает два удобных сценария локальной разработки:
+
+#### Вариант A. Единый полнофункциональный сервер (Production-like)
+FastAPI автоматически раздает скомпилированный бандл React SPA из `frontend/dist/` (через [`app.main.get_spa_index_path()`](app/main.py:84)) и обслуживает все REST API, SSE, Django Allauth и Django Admin на порту `8000`:
+
+```bash
+# 1. Собрать фронтенд (если еще не собран)
+npm --prefix frontend run build
+
+# 2. Запустить единый ASGI-сервер через run_local.py
+uv run python run_local.py
+```
+
+Скрипт [`run_local.main()`](run_local.py:34) автоматически:
+- Проверяет наличие FFmpeg через [`run_local.check_ffmpeg()`](run_local.py:21).
 - Создает локальное хранилище файлов [`local_storage/`](local_storage/.gitkeep:1).
 - Собирает статические файлы Django Admin в [`django_static/`](django_static/admin/img/README.md:1).
 - Применяет миграции базы данных SQLite (`dev_app.db`).
-- Запускает единый ASGI-сервер [`app.asgi.UnifiedASGIApplication`](app/asgi.py:26) через Uvicorn на порту `8000`.
+- Запускает единый ASGI-сервер [`app.asgi.UnifiedASGIApplication`](app/asgi.py:27) через Uvicorn на порту `8000`.
 
-```bash
-uv run python run_local.py
-```
+> Сервер доступен по адресу: **[http://localhost:8000/](http://localhost:8000/)**
+
+#### Вариант B. Разработка фронтенда с Hot Module Replacement (HMR)
+Для мгновенного применения изменений в компонентах React / Tailwind без перезапуска бэкенда запустите серверы в двух параллельных терминалах:
+
+- **Терминал 1 (Бэкенд FastAPI + Django):**
+  ```bash
+  uv run python run_local.py
+  ```
+- **Терминал 2 (Vite Dev Server с HMR):**
+  ```bash
+  npm --prefix frontend run dev
+  ```
+
+> Откройте в браузере **[http://localhost:5173/](http://localhost:5173/)**. Vite dev-сервер в [`frontend/vite.config.ts`](frontend/vite.config.ts:1) автоматически настроен на проксирование запросов `/api`, `/accounts`, `/admin`, `/static` и `/media` на бэкенд-порт `8000`.
 
 ---
 
@@ -103,7 +139,10 @@ uv run python manage.py createsuperuser
 
 ### 7. Доступные эндпоинты и веб-интерфейсы
 
-- **Основной Web UI**: [http://localhost:8000/](http://localhost:8000/)
+- **Основной Web UI (React 19 SPA)**: [http://localhost:8000/](http://localhost:8000/) (или `http://localhost:5173/` при HMR)
+  - Студия транскрипции и аналитики: `http://localhost:8000/studio`
+  - Детальный просмотр задачи: `http://localhost:8000/job/<job_id>`
+  - Личный кабинет и история: `http://localhost:8000/account` (профиль `/account/profile`, безопасность `/account/security`, история `/account/history`)
 - **Интерактивная документация Swagger (FastAPI)**: [http://localhost:8000/docs](http://localhost:8000/docs)
 - **Альтернативная документация ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **Панель управления Django Admin**: [http://localhost:8000/admin/](http://localhost:8000/admin/)
@@ -117,9 +156,12 @@ uv run python manage.py createsuperuser
 # Запуск полного набора unit- и integration-тестов с анализом покрытия
 uv run pytest
 
-# Статическая проверка типов (Strict MyPy)
+# Статическая проверка типов Python (Strict MyPy)
 uv run mypy app
 
-# Проверка линтером и форматирование кода
+# Проверка линтером и форматирование кода Python
 uv run ruff check app tests
+
+# Проверка типов TypeScript и сборка React фронтенда
+npm --prefix frontend run build
 ```
