@@ -78,7 +78,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Mount Built React Assets if available
 if settings.FRONTEND_DIST_DIR.exists() and (settings.FRONTEND_DIST_DIR / "assets").exists():
-    app.mount("/assets", StaticFiles(directory=str(settings.FRONTEND_DIST_DIR / "assets")), name="assets")
+    app.mount(
+        "/assets", StaticFiles(directory=str(settings.FRONTEND_DIST_DIR / "assets")), name="assets"
+    )
 
 
 def get_spa_index_path() -> str:
@@ -170,7 +172,9 @@ async def spa_catch_all(
         >>> # Invoked automatically by FastAPI routing handlers
     """
     if (
-        full_path.startswith(("api/", "static/", "django-static/", "admin/", "accounts/", "assets/"))
+        full_path.startswith(
+            ("api/", "static/", "django-static/", "admin/", "accounts/", "assets/")
+        )
         or full_path == "health"
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")

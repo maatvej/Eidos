@@ -87,7 +87,7 @@ def test_diagnose_bottlenecks_and_rule_categorization(tmp_path: Path) -> None:
     assert len(diag["top_self_time_hotspots"]) > 0
     assert len(diag["diagnostic_findings"]) > 0
 
-    # Test simulated ORM/ML findings via mock
+    # Test simulated ORM/ML/Export/Audio findings via mock
     mock_stats = MagicMock()
     mock_stats.total_tt = 1.0
     mock_stats.total_calls = 50
@@ -96,6 +96,8 @@ def test_diagnose_bottlenecks_and_rule_categorization(tmp_path: Path) -> None:
         ("django/db/models/sql/compiler.py", 10, "execute_sql"): (10, 10, 0.1, 0.5, {}),
         ("faster_whisper/transcribe.py", 20, "transcribe"): (5, 5, 0.2, 0.7, {}),
         ("re.py", 30, "_compile"): (100, 100, 0.3, 0.35, {}),
+        ("app/services/export_service.py", 40, "to_docx"): (5, 5, 0.1, 0.45, {}),
+        ("app/ml/audio_processor.py", 50, "normalize_and_vad"): (5, 5, 0.1, 0.4, {}),
     }
 
     with patch.object(ProfileAnalyzer, "load_stats", return_value=mock_stats):
@@ -106,6 +108,12 @@ def test_diagnose_bottlenecks_and_rule_categorization(tmp_path: Path) -> None:
             assert "High Database/ORM latency detected" in findings_text
             assert "ML / Torch compute dominates session" in findings_text
             assert "High Regex self-time detected" in findings_text
+            assert "High Document Export latency detected" in findings_text
+            assert "High Audio Processing & I/O latency detected" in findings_text
+
+    # Zero total_time branch coverage
+    zero_findings = ProfileAnalyzer._evaluate_diagnostic_rules({}, 0.0)
+    assert zero_findings == ["Execution profile exhibits balanced resource distribution."]
 
 
 def test_compare_profiles(tmp_path: Path) -> None:

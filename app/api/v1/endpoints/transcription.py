@@ -139,6 +139,7 @@ async def upload_audio_file(
 
 
 @router.get("/jobs/{job_id}")
+@profile_async(name="transcription_get_job_status", subfolder="transcription")
 async def get_job_status(
     job_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -154,6 +155,7 @@ async def get_job_status(
 
 
 @router.get("/jobs/{job_id}/audio")
+@profile_async(name="transcription_get_job_audio", subfolder="transcription")
 async def get_job_audio(
     job_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -189,6 +191,7 @@ async def get_job_audio(
 @router.post(
     "/jobs/{job_id}/cancel",
 )
+@profile_async(name="transcription_cancel_job", subfolder="transcription")
 async def cancel_job(
     job_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -231,6 +234,7 @@ async def cancel_job(
 @router.post(
     "/jobs/{job_id}/speaker-rename",
 )
+@profile_async(name="transcription_bulk_rename_speaker", subfolder="transcription")
 async def bulk_rename_speaker(
     job_id: UUID,
     payload: SpeakerRenameRequest | None = None,
@@ -258,7 +262,12 @@ async def bulk_rename_speaker(
         HTTPException: 400 if parameters missing or job has no results, 404 if speaker not found.
 
     Example:
-        >>> job = await bulk_rename_speaker(job_id, SpeakerRenameRequest(old_speaker_label="Спикер 1", new_speaker_name="Алиса"))
+        >>> job = await bulk_rename_speaker(
+        ...     job_id,
+        ...     SpeakerRenameRequest(
+        ...         old_speaker_label="Спикер 1", new_speaker_name="Алиса"
+        ...     ),
+        ... )
     """
     target_old = (payload.old_speaker_label if payload else old_speaker_label) or ""
     target_new = (payload.new_speaker_name if payload else new_speaker_name) or ""
@@ -333,6 +342,7 @@ async def bulk_rename_speaker(
 
 
 @router.get("/jobs/{job_id}/export")
+@profile_async(name="transcription_export_endpoint", subfolder="transcription")
 async def export_transcript(
     job_id: UUID,
     export_format: Literal["txt", "srt", "vtt", "json", "pdf", "docx"],

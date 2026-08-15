@@ -11,6 +11,7 @@ from django.contrib.auth.models import User as DjangoUser
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import FileResponse
 
+from app.core.profiler import profile_async
 from app.core.security import DjangoUserSchema, get_current_django_user
 from app.db.models import Transcription
 from app.repository.job_repository import VoiceProfileRepository
@@ -37,6 +38,7 @@ def _get_django_user_orm(user_id: int) -> DjangoUser | None:
 
 
 @router.get("/me", response_model=UserProfileResponse)
+@profile_async(name="account_get_profile", subfolder="account")
 async def get_account_profile(
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> UserProfileResponse:
@@ -62,6 +64,7 @@ async def get_account_profile(
 
 
 @router.patch("/me", response_model=UserProfileResponse)
+@profile_async(name="account_update_profile", subfolder="account")
 async def update_account_profile(
     payload: UserProfileUpdate,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -145,6 +148,7 @@ def _get_paginated_transcriptions(
 
 
 @router.get("/transcriptions", response_model=PaginatedTranscriptionListResponse)
+@profile_async(name="account_list_transcriptions", subfolder="account")
 async def list_user_transcriptions(
     page: int = Query(default=1, ge=1, description="Page number starting from 1"),
     limit: int = Query(default=10, ge=1, le=100, description="Items per page"),
@@ -198,6 +202,7 @@ def _get_user_transcription_by_id(transcription_id: UUID, user_id: int) -> Trans
 
 
 @router.get("/transcriptions/{transcription_id}", response_model=TranscriptionResponse)
+@profile_async(name="account_get_transcription_detail", subfolder="account")
 async def get_user_transcription_detail(
     transcription_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -232,6 +237,7 @@ async def get_user_transcription_detail(
 
 
 @router.delete("/transcriptions/{transcription_id}", status_code=status.HTTP_204_NO_CONTENT)
+@profile_async(name="account_delete_transcription", subfolder="account")
 async def delete_user_transcription(
     transcription_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -265,6 +271,7 @@ async def delete_user_transcription(
 
 
 @router.get("/transcriptions/{transcription_id}/audio")
+@profile_async(name="account_stream_audio", subfolder="account")
 async def stream_transcription_audio(
     transcription_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),
@@ -306,6 +313,7 @@ async def stream_transcription_audio(
 
 
 @router.get("/voices", response_model=list[VoiceProfileResponse])
+@profile_async(name="account_list_voice_profiles", subfolder="account")
 async def list_user_voice_profiles(
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> list[VoiceProfileResponse]:
@@ -336,6 +344,7 @@ async def list_user_voice_profiles(
 
 
 @router.delete("/voices/{profile_id}", status_code=status.HTTP_204_NO_CONTENT)
+@profile_async(name="account_delete_voice_profile", subfolder="account")
 async def delete_user_voice_profile(
     profile_id: UUID,
     current_user: DjangoUserSchema = Depends(get_current_django_user),

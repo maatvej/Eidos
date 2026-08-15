@@ -560,7 +560,7 @@ def test_inference_engine_extract_speaker_embedding_stereo_and_short(tmp_path: P
     # Segment with short chunk < 250 samples and normal chunk
     segments = [
         {"start": 0.0, "end": 0.01},  # 160 samples -> < 250
-        {"start": 0.1, "end": 0.9},   # Normal chunk
+        {"start": 0.1, "end": 0.9},  # Normal chunk
     ]
     emb = engine.extract_speaker_embedding(stereo_wav, segments)
     assert len(emb) == settings.VOICE_EMBEDDING_DIM

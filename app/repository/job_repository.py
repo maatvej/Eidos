@@ -7,6 +7,7 @@ from uuid import UUID
 from asgiref.sync import sync_to_async
 
 from app.core.logging import logger
+from app.core.profiler import profile_async, profile_sync
 from app.db.models import Transcription, TranscriptionJob, VoiceProfile
 from app.domain.entities import (
     JobStatus,
@@ -19,6 +20,7 @@ from app.domain.exceptions import JobNotFoundError
 from app.ml.inference_engine import InferenceEngine
 
 
+@profile_sync(name="format_speaker_transcription", subfolder="repository")
 def format_speaker_transcription(utterances: list[Utterance]) -> str:
     """Formats a list of utterances into a structured speaker-separated transcript text.
 
@@ -59,6 +61,7 @@ class JobRepository:
     def __init__(self, session=None) -> None:
         self.session = session
 
+    @profile_async(name="repo_job_create", subfolder="repository")
     async def create(self, job: TranscriptionJobEntity) -> TranscriptionJobEntity:
         await TranscriptionJob.objects.acreate(
             id=str(job.id),
@@ -74,6 +77,7 @@ class JobRepository:
         )
         return job
 
+    @profile_async(name="repo_job_get_by_id", subfolder="repository")
     async def get_by_id(self, job_id: UUID) -> TranscriptionJobEntity:
         try:
             model = await TranscriptionJob.objects.aget(id=str(job_id))
@@ -99,6 +103,7 @@ class JobRepository:
             updated_at=model.updated_at,
         )
 
+    @profile_async(name="repo_job_update_progress", subfolder="repository")
     async def update_progress(
         self,
         job_id: UUID,
@@ -156,6 +161,7 @@ class VoiceProfileRepository:
     def __init__(self, session=None) -> None:
         self.session = session
 
+    @profile_async(name="repo_voice_get_profiles", subfolder="repository")
     async def get_user_voice_profiles(self, user_id: int) -> list[VoiceProfileEntity]:
         """Retrieves all voice profiles belonging to a specific user.
 
@@ -168,6 +174,7 @@ class VoiceProfileRepository:
         Example:
             >>> profiles = await repo.get_user_voice_profiles(user_id=1)
         """
+
         @sync_to_async(thread_sensitive=True)
         def _fetch_profiles() -> list[VoiceProfile]:
             return list(VoiceProfile.objects.filter(user_id=user_id).order_by("-updated_at"))
@@ -186,6 +193,7 @@ class VoiceProfileRepository:
             for m in models
         ]
 
+    @profile_async(name="repo_voice_get_profile_by_id", subfolder="repository")
     async def get_voice_profile_by_id(
         self, profile_id: UUID, user_id: int
     ) -> VoiceProfileEntity | None:
@@ -215,6 +223,7 @@ class VoiceProfileRepository:
         except VoiceProfile.DoesNotExist:
             return None
 
+    @profile_async(name="repo_voice_save_profile", subfolder="repository")
     async def save_or_update_voice_profile(
         self,
         user_id: int,
@@ -272,6 +281,7 @@ class VoiceProfileRepository:
 
         return await _persist()
 
+    @profile_async(name="repo_voice_delete_profile", subfolder="repository")
     async def delete_voice_profile(self, profile_id: UUID, user_id: int) -> bool:
         """Deletes a voice profile if it exists and belongs to the specified user.
 
@@ -285,6 +295,7 @@ class VoiceProfileRepository:
         Example:
             >>> deleted = await repo.delete_voice_profile(uuid4(), 1)
         """
+
         @sync_to_async(thread_sensitive=True)
         def _delete() -> bool:
             try:

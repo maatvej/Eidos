@@ -172,47 +172,109 @@ class ProfileAnalyzer:
             "diagnostic_findings": diagnostics,
         }
 
+    @staticmethod
+    def _aggregate_category_times(
+        raw_stats: dict[tuple[str, int, str], tuple[int, int, float, float, dict]],
+    ) -> dict[str, float]:
+        """Aggregates cumulative and self-execution times across subsystem categories.
+
+        Args:
+            raw_stats: Raw function statistics mapping from pstats.
+
+        Returns:
+            Dictionary mapping category names to total accumulated seconds.
+        """
+        times: dict[str, float] = {
+            "orm": 0.0,
+            "ml": 0.0,
+            "regex": 0.0,
+            "export": 0.0,
+            "audio": 0.0,
+        }
+
+        category_matchers: list[tuple[str, tuple[str, ...], bool]] = [
+            ("orm", ("django/db", "sqlalchemy", "aiosqlite"), True),
+            ("ml", ("whisper", "pyannote", "torch"), True),
+            ("regex", ("re.py", "sre_compile"), False),
+            ("export", ("docx", "reportlab", "export_service"), True),
+            ("audio", ("ffmpeg", "wave.py", "audio_processor"), True),
+        ]
+
+        for (fpath, _, _), (_, _, tt, ct, _) in raw_stats.items():
+            fpath_lower = fpath.lower()
+            for cat, keywords, is_cumulative in category_matchers:
+                if any(kw in fpath_lower for kw in keywords):
+                    times[cat] += ct if is_cumulative else tt
+
+        return times
+
     @classmethod
     def _evaluate_diagnostic_rules(
         cls,
         raw_stats: dict[tuple[str, int, str], tuple[int, int, float, float, dict]],
         total_time: float,
     ) -> list[str]:
-        """Evaluates heuristic bottleneck rules against recorded stats."""
+        """Evaluates heuristic bottleneck rules against recorded stats.
+
+        Args:
+            raw_stats: Raw function statistics mapping from pstats.
+            total_time: Total recorded execution time in seconds.
+
+        Returns:
+            List of diagnostic finding descriptions.
+        """
+        if total_time <= 0:
+            return ["Execution profile exhibits balanced resource distribution."]
+
+        times = cls._aggregate_category_times(raw_stats)
         diagnostics: list[str] = []
-        orm_time = 0.0
-        ml_inference_time = 0.0
-        regex_time = 0.0
 
-        for (fpath, _, _), (_, _, tt, ct, _) in raw_stats.items():
-            fpath_lower = fpath.lower()
-            if (
-                "django/db" in fpath_lower
-                or "sqlalchemy" in fpath_lower
-                or "aiosqlite" in fpath_lower
-            ):
-                orm_time += ct
-            if "whisper" in fpath_lower or "pyannote" in fpath_lower or "torch" in fpath_lower:
-                ml_inference_time += ct
-            if "re.py" in fpath_lower or "sre_compile" in fpath_lower:
-                regex_time += tt
-
-        if total_time > 0:
-            if (orm_time / total_time) > 0.4:
-                diagnostics.append(
-                    f"High Database/ORM latency detected: ~{orm_time:.3f}s cumulative "
-                    f"({(orm_time / total_time) * 100:.1f}% of total session time). Check for N+1 queries."
-                )
-            if (ml_inference_time / total_time) > 0.6:
-                diagnostics.append(
-                    f"ML / Torch compute dominates session: ~{ml_inference_time:.3f}s cumulative. "
+        rules: list[tuple[str, float, str]] = [
+            (
+                "orm",
+                0.4,
+                (
+                    f"High Database/ORM latency detected: ~{times['orm']:.3f}s cumulative "
+                    f"({(times['orm'] / total_time) * 100:.1f}% of total session time). Check for N+1 queries."
+                ),
+            ),
+            (
+                "ml",
+                0.6,
+                (
+                    f"ML / Torch compute dominates session: ~{times['ml']:.3f}s cumulative. "
                     "Ensure GPU acceleration or optimal thread count is enabled."
-                )
-            if (regex_time / total_time) > 0.15:
-                diagnostics.append(
-                    f"High Regex self-time detected: ~{regex_time:.3f}s self-time. "
+                ),
+            ),
+            (
+                "regex",
+                0.15,
+                (
+                    f"High Regex self-time detected: ~{times['regex']:.3f}s self-time. "
                     "Consider precompiling regex patterns."
-                )
+                ),
+            ),
+            (
+                "export",
+                0.35,
+                (
+                    f"High Document Export latency detected: ~{times['export']:.3f}s cumulative "
+                    f"({(times['export'] / total_time) * 100:.1f}% of total session time). Consider async report buffering."
+                ),
+            ),
+            (
+                "audio",
+                0.35,
+                (
+                    f"High Audio Processing & I/O latency detected: ~{times['audio']:.3f}s cumulative "
+                    f"({(times['audio'] / total_time) * 100:.1f}% of total session time). Check disk I/O and FFmpeg subprocesses."
+                ),
+            ),
+        ]
+
+        for cat, threshold, message in rules:
+            if (times[cat] / total_time) > threshold:
+                diagnostics.append(message)
 
         if not diagnostics:
             diagnostics.append("Execution profile exhibits balanced resource distribution.")

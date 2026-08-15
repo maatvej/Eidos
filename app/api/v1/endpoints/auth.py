@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 
+from app.core.profiler import profile_async
 from app.core.security import (
     DjangoUserSchema,
     _get_user_metadata,
@@ -43,6 +44,7 @@ async def get_token_info() -> dict[str, str]:
 
 
 @router.post("/token", response_model=TokenResponse)
+@profile_async(name="auth_login_token", subfolder="auth")
 async def login_for_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> TokenResponse:
@@ -75,6 +77,7 @@ async def login_for_access_token(
 
 
 @router.get("/me", response_model=DjangoUserSchema)
+@profile_async(name="auth_get_me", subfolder="auth")
 async def get_my_profile(
     current_user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> DjangoUserSchema:

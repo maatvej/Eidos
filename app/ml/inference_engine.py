@@ -175,6 +175,7 @@ class InferenceEngine:
         )
 
     @staticmethod
+    @profile_sync(name="compute_voice_similarity", subfolder="ml_inference")
     def compute_voice_similarity(emb1: list[float], emb2: list[float]) -> float:
         """Computes cosine similarity between two normalized voice embedding vectors.
 
@@ -208,6 +209,7 @@ class InferenceEngine:
         return max(-1.0, min(1.0, sim))
 
     @staticmethod
+    @profile_sync(name="update_profile_embedding", subfolder="ml_inference")
     def update_profile_embedding(
         existing_embedding: list[float],
         new_embedding: list[float],
@@ -248,9 +250,7 @@ class InferenceEngine:
         return [float(x) for x in v_combined]
 
     @staticmethod
-    def _extract_chunk_features(
-        chunk: Any, sr: int, target_dim: int
-    ) -> list[float]:
+    def _extract_chunk_features(chunk: Any, sr: int, target_dim: int) -> list[float]:
         """Extracts acoustic spectral and timbre features from an isolated audio chunk.
 
         Args:
@@ -271,23 +271,14 @@ class InferenceEngine:
         total_energy = float(np.sum(fft_vals)) or 1.0
 
         centroid = float(np.sum(freqs * fft_vals) / total_energy) / 4000.0
-        variance = (
-            float(np.sum(((freqs - centroid * 4000.0) ** 2) * fft_vals) / total_energy)
-            / 1e6
-        )
+        variance = float(np.sum(((freqs - centroid * 4000.0) ** 2) * fft_vals) / total_energy) / 1e6
 
         low_f0 = float(
             np.sum(fft_vals[np.logical_and(freqs >= 70.0, freqs < 300.0)]) / total_energy
         )
-        f1 = float(
-            np.sum(fft_vals[np.logical_and(freqs >= 300.0, freqs < 1000.0)]) / total_energy
-        )
-        f2 = float(
-            np.sum(fft_vals[np.logical_and(freqs >= 1000.0, freqs < 2500.0)]) / total_energy
-        )
-        f3 = float(
-            np.sum(fft_vals[np.logical_and(freqs >= 2500.0, freqs < 4500.0)]) / total_energy
-        )
+        f1 = float(np.sum(fft_vals[np.logical_and(freqs >= 300.0, freqs < 1000.0)]) / total_energy)
+        f2 = float(np.sum(fft_vals[np.logical_and(freqs >= 1000.0, freqs < 2500.0)]) / total_energy)
+        f3 = float(np.sum(fft_vals[np.logical_and(freqs >= 2500.0, freqs < 4500.0)]) / total_energy)
         high = float(
             np.sum(fft_vals[np.logical_and(freqs >= 4500.0, freqs < 8000.0)]) / total_energy
         )
@@ -376,7 +367,9 @@ class InferenceEngine:
             Normalized 32-dimensional acoustic embedding vector.
 
         Example:
-            >>> emb = engine.extract_speaker_embedding(Path("audio.wav"), [{"start": 0.0, "end": 2.0}])
+            >>> emb = engine.extract_speaker_embedding(
+            ...     Path("audio.wav"), [{"start": 0.0, "end": 2.0}]
+            ... )
             >>> len(emb)
             32
         """
@@ -499,6 +492,7 @@ class InferenceEngine:
 
         return rename_map
 
+    @profile_sync(name="match_speakers_with_voice_memory", subfolder="ml_inference")
     def match_speakers_with_voice_memory(
         self,
         speaker_turns: list[dict[str, Any]],
@@ -523,9 +517,7 @@ class InferenceEngine:
         if not voice_profiles or not speaker_embeddings:
             return speaker_turns, speaker_embeddings
 
-        rename_map = self._build_speaker_rename_map(
-            speaker_embeddings, voice_profiles, threshold
-        )
+        rename_map = self._build_speaker_rename_map(speaker_embeddings, voice_profiles, threshold)
         if not rename_map:
             return speaker_turns, speaker_embeddings
 
@@ -649,6 +641,7 @@ class InferenceEngine:
 
         return self._run_acoustic_diarization(audio_path, words)
 
+    @profile_sync(name="acoustic_diarization", subfolder="ml_inference")
     def _run_acoustic_diarization(
         self, audio_path: Path, words: list[WordTimestamp]
     ) -> list[dict[str, Any]]:

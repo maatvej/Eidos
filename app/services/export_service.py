@@ -3,6 +3,7 @@
 
 import io
 
+from app.core.profiler import profile_sync
 from app.domain.entities import TranscriptionResult
 from app.domain.exceptions import ExportGenerationError
 
@@ -23,7 +24,19 @@ class ExportService:
     def _format_timestamp_vtt(seconds: float) -> str:
         return ExportService._format_timestamp_srt(seconds).replace(",", ".")
 
+    @profile_sync(name="export_to_txt", subfolder="exports")
     def to_txt(self, result: TranscriptionResult) -> str:
+        """Exports transcription result and executive analysis into plain text representation.
+
+        Args:
+            result: Transcription result domain entity.
+
+        Returns:
+            Formatted plain text string.
+
+        Example:
+            >>> txt = service.to_txt(result)
+        """
         lines: list[str] = []
         if result.analysis:
             lines.append("=== MEETING SUMMARY / ВЫЖИМКА ВСТРЕЧИ ===")
@@ -45,7 +58,19 @@ class ExportService:
 
         return "\n".join(lines)
 
+    @profile_sync(name="export_to_srt", subfolder="exports")
     def to_srt(self, result: TranscriptionResult) -> str:
+        """Exports transcription result into standard SubRip Subtitle (SRT) format.
+
+        Args:
+            result: Transcription result domain entity.
+
+        Returns:
+            SRT formatted string.
+
+        Example:
+            >>> srt = service.to_srt(result)
+        """
         lines: list[str] = []
         count = 1
         for utt in result.utterances:
@@ -55,7 +80,19 @@ class ExportService:
             count += 1
         return "\n".join(lines)
 
+    @profile_sync(name="export_to_vtt", subfolder="exports")
     def to_vtt(self, result: TranscriptionResult) -> str:
+        """Exports transcription result into Web Video Text Tracks (WebVTT) format.
+
+        Args:
+            result: Transcription result domain entity.
+
+        Returns:
+            WebVTT formatted string.
+
+        Example:
+            >>> vtt = service.to_vtt(result)
+        """
         lines: list[str] = ["WEBVTT\n"]
         for utt in result.utterances:
             start_str = self._format_timestamp_vtt(utt.start)
@@ -63,7 +100,22 @@ class ExportService:
             lines.append(f"{start_str} --> {end_str}\n<v {utt.speaker}>{utt.text}\n")
         return "\n".join(lines)
 
+    @profile_sync(name="export_to_docx", subfolder="exports")
     def to_docx(self, result: TranscriptionResult) -> bytes:
+        """Exports transcription result and summary into formatted Microsoft Word (DOCX) binary bytes.
+
+        Args:
+            result: Transcription result domain entity.
+
+        Returns:
+            DOCX document binary content bytes.
+
+        Raises:
+            ExportGenerationError: If DOCX generation encounters an error.
+
+        Example:
+            >>> docx_bytes = service.to_docx(result)
+        """
         try:
             from docx import Document
 
@@ -96,7 +148,22 @@ class ExportService:
         except Exception as e:
             raise ExportGenerationError("DOCX", str(e))
 
+    @profile_sync(name="export_to_pdf", subfolder="exports")
     def to_pdf(self, result: TranscriptionResult) -> bytes:
+        """Exports transcription result and executive report into Adobe PDF binary bytes.
+
+        Args:
+            result: Transcription result domain entity.
+
+        Returns:
+            PDF document binary content bytes.
+
+        Raises:
+            ExportGenerationError: If PDF generation encounters an error.
+
+        Example:
+            >>> pdf_bytes = service.to_pdf(result)
+        """
         try:
             from reportlab.lib.pagesizes import letter
             from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
