@@ -82,7 +82,7 @@ if settings.FRONTEND_DIST_DIR.exists() and (settings.FRONTEND_DIST_DIR / "assets
 
 
 def get_spa_index_path() -> str:
-    """Resolves SPA index.html path favoring compiled React frontend with fallback to static.
+    """Resolves SPA index.html path favoring compiled React frontend with fallback to frontend source.
 
     Returns:
         str: Relative filesystem path to the SPA HTML entry point.
@@ -92,10 +92,10 @@ def get_spa_index_path() -> str:
         >>> isinstance(path, str)
         True
     """
-    react_index = settings.FRONTEND_DIST_DIR / "index.html"
-    if react_index.exists():
-        return str(react_index)
-    return "static/index.html"
+    react_dist_index = settings.FRONTEND_DIST_DIR / "index.html"
+    if react_dist_index.exists():
+        return str(react_dist_index)
+    return "frontend/index.html"
 
 
 @app.get("/health")
