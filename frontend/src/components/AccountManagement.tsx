@@ -39,8 +39,9 @@ export const AccountManagement: React.FC = () => {
 
   // Load profile
   useEffect(() => {
+    const controller = new AbortController();
     api.account
-      .getProfile()
+      .getProfile(controller.signal)
       .then((data) => {
         setProfileData(data);
         setUser(data);
@@ -48,19 +49,33 @@ export const AccountManagement: React.FC = () => {
         setLastName(data.last_name || "");
         setEmail(data.email || "");
       })
-      .catch((err) => console.error("Error loading profile:", err));
+      .catch((err) => {
+        if ((err as Error)?.name !== "AbortError") {
+          console.error("Error loading profile:", err);
+        }
+      });
+
+    return () => controller.abort();
   }, [setUser]);
 
   // Load transcriptions
-  const loadTranscriptions = async (page = pagination.page, search = searchQuery, sort = sortBy) => {
+  const loadTranscriptions = async (
+    page = pagination.page,
+    search = searchQuery,
+    sort = sortBy,
+    signal?: AbortSignal
+  ) => {
     setIsLoading(true);
     try {
-      const data = await api.account.getTranscriptions({
-        page,
-        limit: pagination.limit,
-        search: search || undefined,
-        sort_by: sort,
-      });
+      const data = await api.account.getTranscriptions(
+        {
+          page,
+          limit: pagination.limit,
+          search: search || undefined,
+          sort_by: sort,
+        },
+        signal
+      );
       setTranscriptions(data.items);
       setPagination({
         page: data.page,
@@ -68,18 +83,22 @@ export const AccountManagement: React.FC = () => {
         total: data.total,
         total_pages: data.total_pages,
       });
-    } catch (err) {
-      console.error("Error loading transcriptions:", err);
-      showToast("Ошибка при получении истории транскрипций", "error");
+    } catch (err: unknown) {
+      if ((err as Error)?.name !== "AbortError") {
+        console.error("Error loading transcriptions:", err);
+        showToast("Ошибка при получении истории транскрипций", "error");
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     if (accountTab === "history") {
-      loadTranscriptions(1, searchQuery, sortBy);
+      loadTranscriptions(1, searchQuery, sortBy, controller.signal);
     }
+    return () => controller.abort();
   }, [accountTab, sortBy]);
 
   // Keyboard shortcut listener

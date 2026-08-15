@@ -61,18 +61,21 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   auth: {
-    getCurrentUser: () => request<UserProfile>("/api/v1/auth/me"),
+    getCurrentUser: (signal?: AbortSignal) =>
+      request<UserProfile>("/api/v1/auth/me", { signal }),
   },
 
   transcription: {
-    getJob: (jobId: string) => request<TranscriptionJobEntity>(`/api/v1/transcription/jobs/${jobId}`),
-    renameSpeaker: (jobId: string, oldName: string, newName: string) =>
+    getJob: (jobId: string, signal?: AbortSignal) =>
+      request<TranscriptionJobEntity>(`/api/v1/transcription/jobs/${jobId}`, { signal }),
+    renameSpeaker: (jobId: string, oldName: string, newName: string, signal?: AbortSignal) =>
       request<TranscriptionJobEntity>(`/api/v1/transcription/jobs/${jobId}/speaker-rename`, {
         method: "POST",
         body: JSON.stringify({
           old_speaker_label: oldName,
           new_speaker_name: newName,
         }),
+        signal,
       }),
     getAudioUrl: (jobId: string) => `/api/v1/transcription/jobs/${jobId}/audio`,
     getExportUrl: (jobId: string, format: string) =>
@@ -80,30 +83,45 @@ export const api = {
   },
 
   account: {
-    getProfile: () => request<UserProfile>("/api/v1/account/me"),
-    updateProfile: (data: { first_name?: string; last_name?: string; email?: string }) =>
+    getProfile: (signal?: AbortSignal) =>
+      request<UserProfile>("/api/v1/account/me", { signal }),
+    updateProfile: (
+      data: { first_name?: string; last_name?: string; email?: string },
+      signal?: AbortSignal
+    ) =>
       request<UserProfile>("/api/v1/account/me", {
         method: "PATCH",
         body: JSON.stringify(data),
+        signal,
       }),
-    changePassword: (data: { current_password?: string; new_password?: string }) =>
+    changePassword: (
+      data: { current_password?: string; new_password?: string },
+      signal?: AbortSignal
+    ) =>
       request<{ status: string }>("/api/v1/account/me", {
         method: "PATCH",
         body: JSON.stringify(data),
+        signal,
       }),
-    getTranscriptions: (params: { page?: number; limit?: number; search?: string; sort_by?: string }) => {
+    getTranscriptions: (
+      params: { page?: number; limit?: number; search?: string; sort_by?: string },
+      signal?: AbortSignal
+    ) => {
       const qs = new URLSearchParams();
       if (params.page) qs.append("page", params.page.toString());
       if (params.limit) qs.append("limit", params.limit.toString());
       if (params.search) qs.append("search", params.search);
       if (params.sort_by) qs.append("sort_by", params.sort_by);
-      return request<PaginatedTranscriptions>(`/api/v1/account/transcriptions?${qs.toString()}`);
+      return request<PaginatedTranscriptions>(`/api/v1/account/transcriptions?${qs.toString()}`, {
+        signal,
+      });
     },
-    getTranscriptionDetail: (id: string) =>
-      request<AccountTranscriptionItem>(`/api/v1/account/transcriptions/${id}`),
-    deleteTranscription: (id: string) =>
+    getTranscriptionDetail: (id: string, signal?: AbortSignal) =>
+      request<AccountTranscriptionItem>(`/api/v1/account/transcriptions/${id}`, { signal }),
+    deleteTranscription: (id: string, signal?: AbortSignal) =>
       request<void>(`/api/v1/account/transcriptions/${id}`, {
         method: "DELETE",
+        signal,
       }),
   },
 };

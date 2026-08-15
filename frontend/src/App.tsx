@@ -22,12 +22,17 @@ export const App: React.FC = () => {
 
   // Load User Profile on mount
   useEffect(() => {
+    const controller = new AbortController();
     api.auth
-      .getCurrentUser()
+      .getCurrentUser(controller.signal)
       .then((user) => setUser(user))
       .catch((err) => {
-        console.error("[Auth] Error fetching current user:", err);
+        if ((err as Error)?.name !== "AbortError") {
+          console.error("[Auth] Error fetching current user:", err);
+        }
       });
+
+    return () => controller.abort();
   }, [setUser]);
 
   // Client-Side Routing and URL Synchronization

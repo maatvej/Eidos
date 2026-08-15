@@ -144,6 +144,7 @@ def test_cli_main_execution(cli_sample_prof: Path, monkeypatch: pytest.MonkeyPat
     import sys
 
     monkeypatch.setattr(sys, "argv", ["profiler_cli.py", "--path", str(cli_sample_prof), "--json"])
+    monkeypatch.delitem(sys.modules, "app.core.profiler_cli", raising=False)
     with pytest.raises(SystemExit) as exc_info:
-        runpy.run_module("app.core.profiler_cli", run_name="__main__")
+        runpy.run_module("app.core.profiler_cli", run_name="__main__", alter_sys=True)
     assert exc_info.value.code == 0
