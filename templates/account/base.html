@@ -27,37 +27,6 @@
       })();
     </script>
 
-    <!-- Tailwind CSS CDN & Config -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        darkMode: ['class', '[data-theme="dark"]'],
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Manrope', 'system-ui', 'sans-serif'],
-              display: ['Unbounded', 'Manrope', 'sans-serif'],
-              mono: ['JetBrains Mono', 'monospace'],
-            },
-            colors: {
-              brand: {
-                50: '#eef2ff',
-                100: '#e0e7ff',
-                200: '#c7d2fe',
-                300: '#a5b4fc',
-                400: '#818cf8',
-                500: '#6366f1',
-                600: '#4f46e5',
-                700: '#4338ca',
-                800: '#3730a3',
-                900: '#312e81',
-              }
-            }
-          }
-        }
-      };
-    </script>
-
     <link rel="stylesheet" href="/static/css/app.css" />
     {% block extra_head %}{% endblock %}
   </head>

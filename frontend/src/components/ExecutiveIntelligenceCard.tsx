@@ -99,7 +99,7 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-glass border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-7 backdrop-blur-xl shadow-lg transition-all duration-300 mb-6">
+    <div className="bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-7 shadow-sm mb-6">
       {status === "LOADING" && (
         <div>
           <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10">
@@ -178,7 +178,7 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCopySummary}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-all active:scale-95"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150 active:scale-95"
                       title="Скопировать выжимку"
                     >
                       {copied ? (

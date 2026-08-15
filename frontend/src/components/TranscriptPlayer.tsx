@@ -194,7 +194,7 @@ export const TranscriptPlayer: React.FC = () => {
   const audioUrl = jobId ? api.transcription.getAudioUrl(jobId) : "";
 
   return (
-    <div className="bg-glass border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-7 backdrop-blur-xl shadow-lg transition-all duration-300">
+    <div className="bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-7 shadow-sm">
       {status === "LOADING" && (
         <div className="text-center py-12 px-4">
           <h3 className="text-base md:text-lg font-bold text-text-primary mb-2">
@@ -205,7 +205,7 @@ export const TranscriptPlayer: React.FC = () => {
           </p>
           <div className="w-full max-w-sm mx-auto h-2 rounded-full bg-white/10 overflow-hidden mb-2">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-300"
+              className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-[width] duration-200"
               style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
             />
           </div>
@@ -255,7 +255,7 @@ export const TranscriptPlayer: React.FC = () => {
             </div>
 
             {/* Ctrl+F Search Bar */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-colors duration-150">
               <Search className="w-4 h-4 text-text-muted flex-shrink-0" />
               <input
                 type="text"
@@ -281,7 +281,7 @@ export const TranscriptPlayer: React.FC = () => {
                 type="button"
                 disabled={searchMatches.length === 0}
                 onClick={() => navigateSearch("prev")}
-                className="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 disabled:opacity-30 text-text-primary transition-all text-xs"
+                className="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 disabled:opacity-30 text-text-primary transition-colors duration-150 text-xs"
                 title="Предыдущее совпадение (Shift+Enter)"
               >
                 <ChevronUp className="w-3.5 h-3.5" />
@@ -290,7 +290,7 @@ export const TranscriptPlayer: React.FC = () => {
                 type="button"
                 disabled={searchMatches.length === 0}
                 onClick={() => navigateSearch("next")}
-                className="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 disabled:opacity-30 text-text-primary transition-all text-xs"
+                className="w-6 h-6 rounded flex items-center justify-center bg-white/5 hover:bg-white/10 disabled:opacity-30 text-text-primary transition-colors duration-150 text-xs"
                 title="Следующее совпадение (Enter)"
               >
                 <ChevronDown className="w-3.5 h-3.5" />
@@ -305,7 +305,7 @@ export const TranscriptPlayer: React.FC = () => {
                 key={fmt}
                 type="button"
                 onClick={() => handleExport(fmt)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-all hover:-translate-y-0.5 active:translate-y-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 <Download className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Скачать {fmt.toUpperCase()}</span>
@@ -334,7 +334,7 @@ export const TranscriptPlayer: React.FC = () => {
                         color: col.text,
                         borderColor: col.border,
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border hover:scale-105 transition-all shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border hover:opacity-85 transition-opacity duration-150 shadow-sm"
                     >
                       <span>{spk}</span>
                       <Edit2 className="w-3 h-3 opacity-70" />
@@ -347,7 +347,7 @@ export const TranscriptPlayer: React.FC = () => {
 
           {/* Audio Player Bar */}
           {audioUrl && (
-            <div className="sticky top-4 z-20 p-3 rounded-xl bg-surface-elevated/90 backdrop-blur-md border border-white/15 shadow-xl mb-6">
+            <div className="sticky top-4 z-20 p-3 rounded-xl bg-surface-elevated border border-white/15 shadow-md mb-6">
               <audio
                 ref={audioRef}
                 controls
@@ -371,7 +371,7 @@ export const TranscriptPlayer: React.FC = () => {
               return (
                 <div
                   key={utt.id}
-                  className="p-4 md:p-5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                  className="p-4 md:p-5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors duration-150"
                 >
                   <div className="flex items-center justify-between mb-2.5">
                     <button
@@ -382,7 +382,7 @@ export const TranscriptPlayer: React.FC = () => {
                         color: col.text,
                         borderColor: col.border,
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border hover:scale-105 transition-all"
+                      className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-bold border hover:opacity-85 transition-opacity duration-150"
                       title="Нажмите для переименования"
                     >
                       <span>{utt.speaker}</span>
@@ -438,12 +438,12 @@ export const TranscriptPlayer: React.FC = () => {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget) closeSpeakerRenameModal();
           }}
         >
-          <div className="w-full max-w-md bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-2xl text-text-primary">
+          <div className="w-full max-w-md bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-base font-extrabold text-text-primary flex items-center gap-2">
                 <Mic className="w-4 h-4 text-indigo-400" />
@@ -487,7 +487,7 @@ export const TranscriptPlayer: React.FC = () => {
                   key={sug}
                   type="button"
                   onClick={() => setNewSpeakerName(sug)}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 hover:bg-indigo-500/20 hover:text-indigo-300 border border-white/10 text-text-secondary transition-all"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-white/5 hover:bg-indigo-500/20 hover:text-indigo-300 border border-white/10 text-text-secondary transition-colors duration-150"
                 >
                   {sug}
                 </button>
@@ -498,7 +498,7 @@ export const TranscriptPlayer: React.FC = () => {
               <button
                 type="button"
                 onClick={closeSpeakerRenameModal}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-all"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 Отмена
               </button>
@@ -506,7 +506,7 @@ export const TranscriptPlayer: React.FC = () => {
                 type="button"
                 disabled={isRenaming}
                 onClick={executeSpeakerRename}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 disabled:opacity-50 transition-all"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 disabled:opacity-50 transition-opacity duration-150"
               >
                 {isRenaming ? "Сохранение..." : "Сохранить"}
               </button>

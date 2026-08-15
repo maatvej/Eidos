@@ -28,7 +28,7 @@ export const ToastContainer: React.FC = () => {
           <div
             key={toast.id}
             role="alert"
-            className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-2 ${bgClass}`}
+            className={`pointer-events-auto flex items-center justify-between gap-3 px-4 py-3 rounded-xl border shadow-lg transition-opacity duration-200 animate-in fade-in slide-in-from-bottom-2 ${bgClass}`}
           >
             <span className="text-sm font-medium leading-snug">{toast.message}</span>
             <button

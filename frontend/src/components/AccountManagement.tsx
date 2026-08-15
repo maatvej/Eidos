@@ -209,15 +209,15 @@ export const AccountManagement: React.FC = () => {
   };
 
   return (
-    <div className="bg-glass border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-8 backdrop-blur-xl shadow-lg transition-all duration-300">
+    <div className="bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2 md:gap-3 pb-4 mb-6 border-b border-white/10">
         <button
           type="button"
           onClick={() => setAccountTab("history", true)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "history"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
               : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
           }`}
         >
@@ -228,9 +228,9 @@ export const AccountManagement: React.FC = () => {
         <button
           type="button"
           onClick={() => setAccountTab("profile", true)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "profile"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
               : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
           }`}
         >
@@ -241,9 +241,9 @@ export const AccountManagement: React.FC = () => {
         <button
           type="button"
           onClick={() => setAccountTab("security", true)}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "security"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
               : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
           }`}
         >
@@ -286,7 +286,7 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => loadTranscriptions(pagination.page, searchQuery, sortBy)}
-                className="p-2.5 rounded-xl bg-surface-elevated hover:bg-white/10 border border-white/10 text-text-primary transition-all"
+                className="p-2.5 rounded-xl bg-surface-elevated hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
                 title="Обновить список"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -340,7 +340,7 @@ export const AccountManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenInStudio(item.id)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-all"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-colors duration-150"
                             title="Открыть в интерактивной студии"
                           >
                             Студия
@@ -348,7 +348,7 @@ export const AccountManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDetailItem(item)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/5 text-text-primary hover:bg-white/10 border border-white/10 transition-all"
+                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/5 text-text-primary hover:bg-white/10 border border-white/10 transition-colors duration-150"
                             title="Детали стенограммы"
                           >
                             Детали
@@ -356,7 +356,7 @@ export const AccountManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => setDeleteCandidate(item)}
-                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/15 border border-transparent hover:border-red-500/30 transition-all"
+                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/15 border border-transparent hover:border-red-500/30 transition-colors duration-150"
                             title="Удалить запись"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -381,7 +381,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page <= 1}
                 onClick={() => loadTranscriptions(pagination.page - 1)}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-all"
+                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 &larr; Назад
               </button>
@@ -389,7 +389,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page >= pagination.total_pages}
                 onClick={() => loadTranscriptions(pagination.page + 1)}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-all"
+                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 Вперед &rarr;
               </button>
@@ -459,7 +459,7 @@ export const AccountManagement: React.FC = () => {
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
                 >
                   Сохранить изменения
                 </button>
@@ -525,7 +525,7 @@ export const AccountManagement: React.FC = () => {
               <div className="pt-4">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
                 >
                   Обновить пароль
                 </button>
@@ -540,12 +540,12 @@ export const AccountManagement: React.FC = () => {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget) setDetailItem(null);
           }}
         >
-          <div className="w-full max-w-2xl bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-2xl text-text-primary max-h-[85vh] flex flex-col">
+          <div className="w-full max-w-2xl bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-xl text-text-primary max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
               <h3 className="text-base font-extrabold text-text-primary truncate">
                 {detailItem.title}
@@ -605,7 +605,7 @@ export const AccountManagement: React.FC = () => {
                     showToast("Текст расшифровки скопирован!", "success");
                   }
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-all"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 <Copy className="w-3.5 h-3.5" />
                 Копировать текст
@@ -613,7 +613,7 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => handleOpenInStudio(detailItem.id)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 Открыть в Студии
@@ -621,7 +621,7 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDetailItem(null)}
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary transition-all"
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary transition-colors duration-150"
               >
                 Закрыть
               </button>
@@ -635,12 +635,12 @@ export const AccountManagement: React.FC = () => {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150"
           onClick={(e) => {
             if (e.target === e.currentTarget) setDeleteCandidate(null);
           }}
         >
-          <div className="w-full max-w-md bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-2xl text-text-primary">
+          <div className="w-full max-w-md bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
             <h3 className="text-base font-extrabold text-red-400 mb-2">Подтверждение удаления</h3>
             <p className="text-xs md:text-sm text-text-secondary mb-6 leading-relaxed">
               Вы уверены, что хотите безвозвратно удалить запись «{deleteCandidate.title}» и связанный
@@ -650,14 +650,14 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeleteCandidate(null)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-all"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
               >
                 Отмена
               </button>
               <button
                 type="button"
                 onClick={executeDelete}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all shadow-md"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors duration-150 shadow-sm"
               >
                 Удалить безвозвратно
               </button>

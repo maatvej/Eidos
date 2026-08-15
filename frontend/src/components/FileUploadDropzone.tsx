@@ -137,13 +137,13 @@ export const FileUploadDropzone: React.FC = () => {
           handleFile(e.dataTransfer.files[0]);
         }
       }}
-      className={`relative p-8 md:p-10 text-center rounded-2xl border-2 border-dashed transition-all duration-300 cursor-pointer overflow-hidden backdrop-blur-xl shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+      className={`relative p-8 md:p-10 text-center rounded-2xl border-2 border-dashed transition-colors duration-150 cursor-pointer overflow-hidden shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
         isDragging
-          ? "border-indigo-500 bg-indigo-500/15 scale-[1.02] shadow-indigo-500/20"
-          : "border-white/15 hover:border-indigo-500 bg-glass hover:bg-surface-elevated hover:-translate-y-0.5"
+          ? "border-indigo-500 bg-indigo-500/15"
+          : "border-white/15 hover:border-indigo-500 bg-surface-elevated/40 hover:bg-surface-elevated/70"
       }`}
     >
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 transition-transform duration-300 group-hover:scale-110">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 transition-colors duration-150">
         <UploadCloud className="w-8 h-8" />
       </div>
 
@@ -181,7 +181,7 @@ export const FileUploadDropzone: React.FC = () => {
         <div className="mt-6 pt-4 border-t border-white/10">
           <div className="w-full h-2 rounded-full bg-surface-elevated overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-200 shadow-md shadow-indigo-500/50"
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-150"
               style={{ width: `${Math.min(Math.max(uploadProgress, 0), 100)}%` }}
             />
           </div>

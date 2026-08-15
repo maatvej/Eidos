@@ -8,7 +8,7 @@ export const Header: React.FC = () => {
   const isAccount = currentView === "account";
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-glass border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl backdrop-blur-xl shadow-lg transition-all duration-300">
+    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl shadow-sm">
       {/* Brand Section */}
       <a
         href="/"
@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
         className="flex items-center gap-4 text-inherit no-underline group cursor-pointer focus:outline-none"
         aria-label="Eidos Voice Intelligence — Главная страница"
       >
-        <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-105 group-hover:bg-indigo-500/25 transition-all shadow-md">
+        <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/25 transition-colors shadow-sm">
           <Mic className="w-6 h-6" />
         </div>
         <div>
@@ -50,7 +50,7 @@ export const Header: React.FC = () => {
               navigate(`/account/${accountTab || "history"}`);
             }
           }}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-all duration-200 bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25 hover:border-indigo-500/50"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors duration-150 bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25 hover:border-indigo-500/50"
           aria-pressed={isAccount}
           title={isAccount ? "Вернуться в Студию" : "Переключить в Личный кабинет"}
         >
@@ -89,7 +89,7 @@ export const Header: React.FC = () => {
         <button
           type="button"
           onClick={toggleTheme}
-          className="w-9 h-9 rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-white/5 hover:bg-white/10 text-text-primary flex items-center justify-center transition-all duration-200"
+          className="w-9 h-9 rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-white/5 hover:bg-white/10 text-text-primary flex items-center justify-center transition-colors duration-150"
           aria-label={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
           title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
         >
