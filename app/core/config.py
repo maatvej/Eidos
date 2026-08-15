@@ -27,19 +27,44 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
 
     # ML Models & Device Overrides
-    WHISPER_MODEL_SIZE: str = "small"
+    WHISPER_MODEL_SIZE: str = "large-v3-turbo"
+    WHISPER_FALLBACK_MODEL_SIZE: str = "medium"
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
     WHISPER_CPU_THREADS: int = 4
     WHISPER_NUM_WORKERS: int = 1
-    WHISPER_BEAM_SIZE: int = 1
+    WHISPER_BEAM_SIZE: int = 5
+    WHISPER_BEST_OF: int = 5
+    WHISPER_PATIENCE: float = 1.0
+    WHISPER_REPETITION_PENALTY: float = 1.05
+    WHISPER_NO_REPEAT_NGRAM_SIZE: int = 3
     WHISPER_CONDITION_ON_PREVIOUS_TEXT: bool = False
-    TORCH_NUM_THREADS: int = 4
-    UPLOAD_CHUNK_SIZE: int = 1024 * 1024
+    WHISPER_INITIAL_PROMPT: str = (
+        "Стенограмма деловой встречи, совещания, презентации. "
+        "Используйте корректную пунктуацию, заглавные буквы, разделение предложений и терминологию."
+    )
+    WHISPER_VAD_MIN_SILENCE_MS: int = 400
+    WHISPER_VAD_SPEECH_PAD_MS: int = 300
+
+    # Audio Preprocessing Enhancements
+    AUDIO_NORMALIZE_LOUDNESS: bool = True
+    AUDIO_NOISE_REDUCTION: bool = True
+    AUDIO_BANDPASS_FILTER: bool = True
     FFMPEG_THREADS: int = 2
+    UPLOAD_CHUNK_SIZE: int = 1024 * 1024
+
+    # Speaker Diarization Settings
     PYANNOTE_AUTH_TOKEN: str = "hf_dummy_token"
+    DIARIZATION_MIN_SPEAKERS: int | None = None
+    DIARIZATION_MAX_SPEAKERS: int | None = None
+
+    # LLM & Conversation Intelligence Settings
     LLM_API_KEY: str = "mock-key"
+    LLM_BASE_URL: str = "https://api.openai.com/v1"
     LLM_MODEL_NAME: str = "gpt-4o"
+    LLM_TEMPERATURE: float = 0.2
+    LLM_MAX_TOKENS: int = 4096
+    TORCH_NUM_THREADS: int = 4
 
 
 settings = Settings()

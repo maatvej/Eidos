@@ -176,7 +176,7 @@ EN_STOP_WORDS: set[str] = {
 
 
 class LocalDynamicSummarizer:
-    """Dynamic local extractive summarizer operating on raw transcript text."""
+    """Semantic graph-based summarizer (LexRank/TextRank centrality) and linguistic intelligence extractor."""
 
     @staticmethod
     def split_into_sentences(text: str) -> list[str]:
@@ -190,8 +190,45 @@ class LocalDynamicSummarizer:
         return cleaned
 
     @classmethod
+    def _compute_sentence_vectors(
+        cls, sentences: list[str], stop_words: set[str]
+    ) -> list[dict[str, float]]:
+        """Computes TF-IDF term vectors for each sentence for semantic similarity calculation."""
+        doc_freq: dict[str, int] = {}
+        sentence_terms: list[list[str]] = []
+
+        for s in sentences:
+            tokens = [
+                w for w in re.findall(r"\w+", s.lower()) if len(w) > 2 and w not in stop_words
+            ]
+            sentence_terms.append(tokens)
+            for token in set(tokens):
+                doc_freq[token] = doc_freq.get(token, 0) + 1
+
+        n_docs = max(len(sentences), 1)
+        vectors: list[dict[str, float]] = []
+
+        for terms in sentence_terms:
+            tf = Counter(terms)
+            vec: dict[str, float] = {}
+            for term, count in tf.items():
+                idf = math.log((n_docs + 1.0) / (doc_freq.get(term, 1) + 1.0)) + 1.0
+                vec[term] = float(count) * idf
+            # Normalize vector L2 norm
+            norm = math.sqrt(sum(v * v for v in vec.values())) or 1.0
+            vectors.append({k: v / norm for k, v in vec.items()})
+
+        return vectors
+
+    @classmethod
+    def _cosine_similarity(cls, vec1: dict[str, float], vec2: dict[str, float]) -> float:
+        """Calculates cosine similarity between two sparse TF-IDF vectors."""
+        common = set(vec1.keys()).intersection(vec2.keys())
+        return sum(vec1[k] * vec2[k] for k in common)
+
+    @classmethod
     def extract_title(cls, sentences: list[str], is_russian: bool) -> str:
-        """Extracts a concise auto-generated topic/title for the conversation."""
+        """Extracts a concise auto-generated topic/title using semantic centrality."""
         if not sentences:
             return "Обсуждение встречи" if is_russian else "Meeting Discussion"
 
@@ -212,8 +249,37 @@ class LocalDynamicSummarizer:
         return clean_first or ("Обсуждение встречи" if is_russian else "Meeting Discussion")
 
     @classmethod
+    def _rank_sentences_lexrank(
+        cls, sentences: list[str], vectors: list[dict[str, float]]
+    ) -> list[float]:
+        """Calculates PageRank/LexRank centrality vector over sentence graph."""
+        n = len(sentences)
+        sim_matrix = [[0.0] * n for _ in range(n)]
+        degree = [0.0] * n
+
+        for i in range(n):
+            for j in range(n):
+                if i != j:
+                    sim = cls._cosine_similarity(vectors[i], vectors[j])
+                    if sim > 0.05:
+                        sim_matrix[i][j] = sim
+                        degree[i] += sim
+
+        scores = [1.0 / n] * n
+        damping = 0.85
+        for _ in range(20):
+            new_scores = [(1.0 - damping) / n] * n
+            for i in range(n):
+                for j in range(n):
+                    if degree[j] > 0:
+                        new_scores[i] += damping * (sim_matrix[j][i] / degree[j]) * scores[j]
+            scores = new_scores
+
+        return scores
+
+    @classmethod
     def extract_summary(cls, sentences: list[str], is_russian: bool, max_sentences: int = 3) -> str:
-        """Extracts top representative sentences as an executive summary."""
+        """Extracts top representative sentences using LexRank/TextRank graph centrality algorithm."""
         if not sentences:
             return (
                 "Разговорная речь не содержит достаточно ключевых тезисов."
@@ -225,28 +291,21 @@ class LocalDynamicSummarizer:
             return " ".join(sentences)
 
         stop_words = RU_STOP_WORDS if is_russian else EN_STOP_WORDS
-        words = re.findall(r"\w+", " ".join(sentences).lower())
-        meaningful_words = [w for w in words if len(w) > 3 and w not in stop_words]
+        vectors = cls._compute_sentence_vectors(sentences, stop_words)
+        scores = cls._rank_sentences_lexrank(sentences, vectors)
+        n = len(sentences)
 
-        if not meaningful_words:
-            return " ".join(sentences[:max_sentences])
+        ranked_indices: list[tuple[float, int, str]] = []
+        for idx, (score, sent) in enumerate(zip(scores, sentences, strict=False)):
+            pos_mult = 1.25 if idx == 0 or idx == n - 1 else 1.0
+            word_count = len(sent.split())
+            len_mult = 1.1 if 6 <= word_count <= 35 else 0.8
+            ranked_indices.append((score * pos_mult * len_mult, idx, sent))
 
-        word_counts = Counter(meaningful_words)
-        scored_sentences: list[tuple[float, int, str]] = []
+        ranked_indices.sort(key=lambda x: x[0], reverse=True)
+        top_selected = sorted(ranked_indices[:max_sentences], key=lambda x: x[1])
 
-        for idx, sentence in enumerate(sentences):
-            s_words = re.findall(r"\w+", sentence.lower())
-            score = sum(word_counts[w] for w in s_words if w in word_counts)
-            position_mult = 1.2 if idx < 2 or idx >= len(sentences) - 2 else 1.0
-            length_penalty = 1.0 if 5 <= len(s_words) <= 30 else 0.8
-            denom = math.sqrt(len(s_words) + 1)
-            final_score = (score / denom) * position_mult * length_penalty
-            scored_sentences.append((final_score, idx, sentence))
-
-        scored_sentences.sort(key=lambda x: x[0], reverse=True)
-        top_sentences = sorted(scored_sentences[:max_sentences], key=lambda x: x[1])
-
-        return " ".join([s[2] for s in top_sentences])
+        return " ".join([s[2] for s in top_selected])
 
     @classmethod
     def extract_decisions(cls, sentences: list[str], is_russian: bool) -> list[str]:
@@ -521,21 +580,24 @@ class LLMIntelligenceEngine:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": 0.2,
+            "temperature": settings.LLM_TEMPERATURE,
+            "max_tokens": settings.LLM_MAX_TOKENS,
             "response_format": {"type": "json_object"},
         }
 
-        async with httpx.AsyncClient(timeout=25.0) as client:
+        endpoint_url = f"{settings.LLM_BASE_URL.rstrip('/')}/chat/completions"
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
             try:
                 response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    endpoint_url,
                     headers=headers,
                     json=payload,
                 )
                 if response.status_code != 200:
                     payload.pop("response_format", None)
                     response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
+                        endpoint_url,
                         headers=headers,
                         json=payload,
                     )

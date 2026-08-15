@@ -228,3 +228,59 @@ def test_local_dynamic_summarizer_helper_functions() -> None:
         "Everything is great and excellent!", is_russian=False
     )
     assert sentiment == "POSITIVE"
+
+
+def test_local_dynamic_summarizer_vector_and_cosine_similarity() -> None:
+    """Validates TF-IDF vector generation and cosine similarity calculation."""
+    sentences = [
+        "Архитектура микросервисов на Python FastAPI.",
+        "Разработка серверных приложений на FastAPI и PostgreSQL.",
+        "Кулинарные рецепты итальянской кухни.",
+    ]
+    vectors = LocalDynamicSummarizer._compute_sentence_vectors(sentences, stop_words={"на", "и"})
+    assert len(vectors) == 3
+
+    # Sentences 0 and 1 both discuss FastAPI, so similarity should be higher than with sentence 2
+    sim_tech = LocalDynamicSummarizer._cosine_similarity(vectors[0], vectors[1])
+    sim_diff = LocalDynamicSummarizer._cosine_similarity(vectors[0], vectors[2])
+    assert sim_tech > sim_diff
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_custom_base_url_and_options(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates that custom LLM_BASE_URL, temperature, and max_tokens are correctly sent in payload."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "custom-api-token")
+    monkeypatch.setattr(settings, "LLM_BASE_URL", "http://localhost:11434/v1")
+    monkeypatch.setattr(settings, "LLM_MODEL_NAME", "llama3.1")
+    monkeypatch.setattr(settings, "LLM_TEMPERATURE", 0.3)
+    monkeypatch.setattr(settings, "LLM_MAX_TOKENS", 2048)
+
+    mock_llm_response = {
+        "title": "Интеграция с Ollama",
+        "executive_summary": "Успешная проверка локальной модели LLaMA.",
+        "key_decisions": ["Использовать локальный инференс"],
+        "action_items": [],
+        "overall_sentiment": "POSITIVE",
+    }
+
+    mock_post = AsyncMock()
+    mock_post.return_value = httpx.Response(
+        200, json={"choices": [{"message": {"content": json.dumps(mock_llm_response)}}]}
+    )
+
+    with patch("httpx.AsyncClient.post", new=mock_post):
+        result = await engine.extract_intelligence(
+            "SPEAKER_01: Мы подробно обсудили развертывание локальной модели LLaMA на собственном сервере компании для конфиденциальности.",
+            language="ru",
+        )
+        assert result.title == "Интеграция с Ollama"
+        assert result.overall_sentiment == "POSITIVE"
+
+        mock_post.assert_called_once()
+        url_called, kwargs_called = mock_post.call_args[0][0], mock_post.call_args[1]
+        assert url_called == "http://localhost:11434/v1/chat/completions"
+        assert kwargs_called["json"]["temperature"] == 0.3
+        assert kwargs_called["json"]["max_tokens"] == 2048
+        assert kwargs_called["json"]["model"] == "llama3.1"

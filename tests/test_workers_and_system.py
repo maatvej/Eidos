@@ -117,7 +117,8 @@ async def test_process_transcription_job_error_handling() -> None:
 
         updated_job = await repo.get_by_id(job_id)
         assert updated_job.status == JobStatus.FAILED
-        assert updated_job.error_message is not None and "Fatal" in updated_job.error_message
+        assert updated_job.error_message is not None
+        assert "Fatal" in updated_job.error_message
 
 
 def test_worker_settings_class() -> None:
