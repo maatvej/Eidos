@@ -143,7 +143,6 @@ export const StorageHelper = {
     if (!state) return;
     try {
       if (!state.jobId) {
-        this.clearActiveJob();
         return;
       }
       const payload = {
@@ -161,20 +160,36 @@ export const StorageHelper = {
       const serialized = JSON.stringify(payload);
       sessionStorage.setItem(this.JOB_STATE_KEY, serialized);
       localStorage.setItem(this.JOB_STATE_KEY, serialized);
+      sessionStorage.setItem(`${this.JOB_STATE_KEY}_${state.jobId}`, serialized);
+      localStorage.setItem(`${this.JOB_STATE_KEY}_${state.jobId}`, serialized);
       this.saveActiveJob(state.jobId);
     } catch (e) {
       console.warn("[Storage] Failed to save job state snapshot:", e);
     }
   },
 
-  getSavedJobState() {
+  getSavedJobState(targetJobId = null) {
     try {
+      if (targetJobId) {
+        const specificRaw =
+          sessionStorage.getItem(`${this.JOB_STATE_KEY}_${targetJobId}`) ||
+          localStorage.getItem(`${this.JOB_STATE_KEY}_${targetJobId}`);
+        if (specificRaw) {
+          const parsed = JSON.parse(specificRaw);
+          if (parsed && parsed.jobId === targetJobId) {
+            return parsed;
+          }
+        }
+      }
       const raw =
         sessionStorage.getItem(this.JOB_STATE_KEY) ||
         localStorage.getItem(this.JOB_STATE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (parsed && parsed.jobId) {
+        if (targetJobId && parsed.jobId !== targetJobId) {
+          return null;
+        }
         return parsed;
       }
       return null;
@@ -201,8 +216,32 @@ export const StorageHelper = {
   },
 };
 
-// Compute default idle job state for clean application initialization
+// Compute initial job state based on current location and persistent storage
 const getInitialJobState = () => {
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname || "";
+    // Check if the current URL is a specific job or transcription route
+    const jobMatch = pathname.match(/^\/(?:jobs|transcriptions)\/([^/?#]+)/);
+    if (jobMatch && jobMatch[1]) {
+      const urlJobId = decodeURIComponent(jobMatch[1]);
+      const saved = StorageHelper.getSavedJobState(urlJobId);
+      if (saved && saved.jobId === urlJobId) {
+        return saved;
+      }
+      return {
+        jobId: urlJobId,
+        status: "LOADING",
+        progress: 10,
+        stepMessage: "Восстановление состояния и данных расшифровки...",
+        transcript: null,
+        errorMessage: null,
+        currentTime: 0.0,
+        initialAudioTime: 0.0,
+        initialSearchQuery: "",
+      };
+    }
+  }
+
   return {
     jobId: null,
     status: "IDLE",
@@ -251,10 +290,8 @@ export function resetJobState() {
 // Automatically synchronize state changes to persistent storage
 globalStore.subscribe(
   (state) => {
-    if (state.jobId) {
+    if (state.jobId && state.status !== "IDLE") {
       StorageHelper.saveJobState(state);
-    } else if (state.status === "IDLE") {
-      StorageHelper.clearActiveJob();
     }
   },
   ["jobId", "status", "progress", "stepMessage", "transcript", "errorMessage", "currentTime"]
@@ -316,11 +353,19 @@ export async function hydrateJob(jobId, options = {}) {
     updatePayload.progress = typeof current.progress === "number" ? current.progress : 10;
     updatePayload.stepMessage = current.stepMessage || "Синхронизация с сервером...";
   } else {
-    updatePayload.status = "LOADING";
-    updatePayload.progress = isSameJob && typeof current.progress === "number" && current.progress > 0 ? current.progress : 10;
-    updatePayload.stepMessage = isSameJob && current.stepMessage ? current.stepMessage : "Восстановление состояния и данных расшифровки...";
-    if (!isSameJob) {
-      updatePayload.transcript = null;
+    const saved = StorageHelper.getSavedJobState(jobId);
+    if (saved && saved.jobId === jobId && saved.transcript) {
+      updatePayload.status = saved.status || "SUCCESS";
+      updatePayload.progress = typeof saved.progress === "number" ? saved.progress : 100;
+      updatePayload.stepMessage = saved.stepMessage || "Стенограмма готова";
+      updatePayload.transcript = saved.transcript;
+    } else {
+      updatePayload.status = "LOADING";
+      updatePayload.progress = isSameJob && typeof current.progress === "number" && current.progress > 0 ? current.progress : 10;
+      updatePayload.stepMessage = isSameJob && current.stepMessage ? current.stepMessage : "Восстановление состояния и данных расшифровки...";
+      if (!isSameJob) {
+        updatePayload.transcript = null;
+      }
     }
   }
 
@@ -448,7 +493,20 @@ export async function hydrateJob(jobId, options = {}) {
     }
 
     // If endpoints returned not found, but we already have valid restored transcript, keep it
-    if (isSameJob && globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+    if (globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+      return true;
+    }
+
+    const fallbackSaved = StorageHelper.getSavedJobState(jobId);
+    if (fallbackSaved && fallbackSaved.jobId === jobId && fallbackSaved.transcript) {
+      globalStore.setState({
+        jobId,
+        status: fallbackSaved.status || "SUCCESS",
+        progress: typeof fallbackSaved.progress === "number" ? fallbackSaved.progress : 100,
+        stepMessage: fallbackSaved.stepMessage || "Стенограмма готова",
+        transcript: fallbackSaved.transcript,
+        errorMessage: null,
+      });
       return true;
     }
 
@@ -461,7 +519,19 @@ export async function hydrateJob(jobId, options = {}) {
     return false;
   } catch (err) {
     console.error("[Hydration] Error hydrating job:", err);
-    if (isSameJob && globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+    if (globalStore.state.transcript && globalStore.state.status === "SUCCESS") {
+      return true;
+    }
+    const fallbackSaved = StorageHelper.getSavedJobState(jobId);
+    if (fallbackSaved && fallbackSaved.jobId === jobId && fallbackSaved.transcript) {
+      globalStore.setState({
+        jobId,
+        status: fallbackSaved.status || "SUCCESS",
+        progress: typeof fallbackSaved.progress === "number" ? fallbackSaved.progress : 100,
+        stepMessage: fallbackSaved.stepMessage || "Стенограмма готова",
+        transcript: fallbackSaved.transcript,
+        errorMessage: null,
+      });
       return true;
     }
     globalStore.setState({
