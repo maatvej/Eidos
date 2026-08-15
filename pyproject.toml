@@ -70,6 +70,8 @@ exclude = [
     "node_modules",
     "local_storage",
     "django_static",
+    "static",
+    "templates",
 ]
 
 [tool.ruff.format]
@@ -143,7 +145,6 @@ ignore = [
     "PLC0415", # Imports outside top level (lazy loading of optional/heavy modules)
     "N806",    # Uppercase variable name (e.g. User = get_user_model())
     "B904",    # Within an `except` clause, raise exceptions with `raise ... from`
-    "ASYNC240", # Standard pathlib.Path in async handler functions
 ]
 fixable = ["ALL"]
 unfixable = [
