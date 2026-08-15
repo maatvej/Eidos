@@ -151,7 +151,7 @@ def test_launch_snakeviz(sample_profile_file: Path) -> None:
         mock_popen.assert_called_once()
         mock_proc.wait.assert_called_once()
         cmd_called = mock_popen.call_args[0][0]
-        assert "--server-only" in cmd_called
+        assert "--server" in cmd_called
         assert "--port" in cmd_called
         assert "8080" in cmd_called
 

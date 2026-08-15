@@ -348,7 +348,7 @@ class ProfileAnalyzer:
             str(port),
         ]
         if not browser:
-            cmd.append("--server-only")
+            cmd.append("--server")
 
         logger.info(f"Launching SnakeViz: {' '.join(cmd)}")
         try:
