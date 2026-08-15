@@ -37,10 +37,14 @@ async def test_worker_startup_hook() -> None:
 
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
-async def test_process_transcription_job_success(tmp_path: Path) -> None:
-    """Validates full worker pipeline execution for a transcription job."""
+async def test_process_transcription_job_success_and_cleanup(tmp_path: Path) -> None:
+    """Validates full worker pipeline execution and temporary file cleanup."""
     audio_file = tmp_path / "job_audio.wav"
     audio_file.write_bytes(b"RIFF....WAVE")
+
+    # Create temporary normalized wav file to trigger cleanup branch
+    normalized_file = Path(f"{audio_file}_16k.wav")
+    normalized_file.write_bytes(b"RIFF_NORMALIZED_16K")
 
     job_id = uuid4()
     job_entity = TranscriptionJobEntity(
@@ -56,7 +60,7 @@ async def test_process_transcription_job_success(tmp_path: Path) -> None:
 
     # Mock FFmpeg, InferenceEngine, and LLM
     mock_ffmpeg = AsyncMock()
-    mock_ffmpeg.normalize_and_vad.return_value = audio_file
+    mock_ffmpeg.normalize_and_vad.return_value = normalized_file
 
     mock_result = TranscriptionResult(
         utterances=[Utterance(speaker="SPEAKER_00", start=0.0, end=1.0, text="Привет")],
@@ -85,6 +89,8 @@ async def test_process_transcription_job_success(tmp_path: Path) -> None:
         updated_job = await repo.get_by_id(job_id)
         assert updated_job.status == JobStatus.COMPLETED
         assert updated_job.progress_percentage == 100.0
+        # Verify temporary normalized file was deleted
+        assert not normalized_file.exists()
 
 
 @pytest.mark.asyncio

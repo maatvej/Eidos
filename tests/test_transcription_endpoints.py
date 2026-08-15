@@ -7,8 +7,10 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from httpx import AsyncClient
 
+from app.api.v1.endpoints.transcription import export_transcript
 from app.domain.entities import (
     ConversationAnalysis,
     JobStatus,
@@ -70,7 +72,12 @@ async def test_get_job_status_success_and_not_found(
 @pytest.mark.asyncio
 async def test_get_job_audio_serving(client: AsyncClient, tmp_path: Path) -> None:
     """Validates audio file serving, MIME detection, and missing file error handling."""
-    # Create temp audio file
+    # 1. Missing job lookup -> 404
+    missing_id = uuid4()
+    resp_missing_job = await client.get(f"/api/v1/transcription/jobs/{missing_id}/audio")
+    assert resp_missing_job.status_code == 404
+
+    # 2. Create temp audio file and valid job
     audio_file = tmp_path / "test_audio.mp3"
     audio_file.write_bytes(b"FAKE_MP3_DATA")
 
@@ -87,16 +94,16 @@ async def test_get_job_audio_serving(client: AsyncClient, tmp_path: Path) -> Non
     repo = JobRepository()
     await repo.create(job)
 
-    # 1. Fetch existing audio file
+    # Fetch existing audio file
     resp = await client.get(f"/api/v1/transcription/jobs/{job_id}/audio")
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "audio/mpeg"
 
-    # 2. File missing on disk
+    # 3. File missing on disk
     audio_file.unlink()
     resp_missing_file = await client.get(f"/api/v1/transcription/jobs/{job_id}/audio")
     assert resp_missing_file.status_code == 404
-    assert "not found on disk" in resp_missing_file.json()["detail"]
+    assert "Audio file not found on disk" in resp_missing_file.json()["detail"]
 
 
 @pytest.mark.asyncio
@@ -189,6 +196,47 @@ async def test_export_transcript_all_formats(
         )
         assert resp.status_code == 200, f"Failed for format {fmt}"
         assert len(resp.content) > 0
+
+
+@pytest.mark.asyncio
+async def test_export_transcript_errors() -> None:
+    """Validates 400 errors when job has no results or unsupported export format is requested."""
+    job_id = uuid4()
+    job_no_result = TranscriptionJobEntity(
+        id=job_id,
+        filename="pending.wav",
+        file_path="/tmp/pending.wav",
+        status=JobStatus.PENDING,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    repo = JobRepository()
+    await repo.create(job_no_result)
+
+    # 1. Export job without result -> raises HTTPException 400
+    with pytest.raises(HTTPException) as exc_no_result:
+        await export_transcript(job_id=job_id, export_format="txt")
+    assert exc_no_result.value.status_code == 400
+    assert "not ready for document export" in exc_no_result.value.detail
+
+    # 2. Export with unsupported format -> raises HTTPException 400
+    job_with_result = TranscriptionJobEntity(
+        id=uuid4(),
+        filename="ready.wav",
+        file_path="/tmp/ready.wav",
+        status=JobStatus.COMPLETED,
+        result=TranscriptionResult(
+            utterances=[Utterance(speaker="S1", start=0.0, end=1.0, text="Done")]
+        ),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    await repo.create(job_with_result)
+
+    with pytest.raises(HTTPException) as exc_unsupported:
+        await export_transcript(job_id=job_with_result.id, export_format="invalid_format")  # type: ignore
+    assert exc_unsupported.value.status_code == 400
+    assert "Unsupported export format" in exc_unsupported.value.detail
 
 
 @pytest.mark.asyncio

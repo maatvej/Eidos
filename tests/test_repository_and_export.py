@@ -92,7 +92,37 @@ async def test_job_repository_crud_and_sync(test_user, sample_result: Transcript
     assert "Project Update Meeting" in trans_orm.title
     assert "Hello and welcome." in trans_orm.transcription_text
 
-    # 4. JobNotFoundError on non-existent job ID
+    # 4. Update progress with no analysis title fallback
+    result_no_title = TranscriptionResult(
+        utterances=[Utterance(speaker="S1", start=0.0, end=1.0, text="Text")],
+        duration_seconds=1.0,
+        analysis=ConversationAnalysis(
+            title="",
+            executive_summary="Summary",
+            key_decisions=[],
+            action_items=[],
+        ),
+    )
+    trans_orm.title = "test_sync.wav"
+    await sync_to_async(trans_orm.save)()
+
+    await repo.update_progress(
+        job_id=job_id,
+        status=JobStatus.COMPLETED,
+        progress=100.0,
+        step="Completed",
+        result=result_no_title,
+    )
+    trans_orm_updated = await sync_to_async(Transcription.objects.get)(id=job_id)
+    assert "Расшифровка test_sync.wav" in trans_orm_updated.title
+
+    # 5. Exception during sync handling (hits line 108-109 in job_repository.py)
+    with patch.object(Transcription.objects, "get", side_effect=RuntimeError("ORM sync error")):
+        await repo.update_progress(
+            job_id=job_id, status=JobStatus.COMPLETED, progress=100.0, step="Done"
+        )
+
+    # 6. JobNotFoundError on non-existent job ID
     random_id = uuid4()
     with pytest.raises(JobNotFoundError):
         await repo.get_by_id(random_id)
@@ -135,7 +165,6 @@ def test_export_service_formatting_and_renders(sample_result: TranscriptionResul
 
     # PDF
     pdf_bytes = service.to_pdf(sample_result)
-    assert isinstance(pdf_bytes, bytes)
     assert pdf_bytes.startswith(b"%PDF")
 
 

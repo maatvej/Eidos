@@ -9,6 +9,7 @@ import pytest
 
 from app.core.config import settings
 from app.domain.entities import ConversationAnalysis
+from app.domain.exceptions import LLMServiceError
 from app.ml.llm_processor import LLMIntelligenceEngine, LocalDynamicSummarizer
 
 
@@ -148,6 +149,39 @@ async def test_extract_intelligence_external_llm_api_success(
 
 
 @pytest.mark.asyncio
+async def test_extract_intelligence_llm_api_retry_and_error_handling(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates retry without response_format when HTTP 400 is returned, and final failure raising LLMServiceError."""
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-valid-test-key")
+
+    # 1. First call 400, second retry 200 success
+    valid_resp = {
+        "title": "Успешный повтор",
+        "executive_summary": "Ответ получен со второй попытки.",
+        "key_decisions": [],
+        "action_items": [],
+        "overall_sentiment": "NEUTRAL",
+    }
+    resp_400 = httpx.Response(400, text="Bad Request: json_object unsupported")
+    resp_200 = httpx.Response(
+        200, json={"choices": [{"message": {"content": json.dumps(valid_resp)}}]}
+    )
+
+    with patch("httpx.AsyncClient.post", side_effect=[resp_400, resp_200]):
+        res = await engine._call_llm_api("Текст стенограммы", is_russian=True)
+        assert res is not None
+        assert res.title == "Успешный повтор"
+
+    # 2. Both calls fail -> raises LLMServiceError
+    resp_500 = httpx.Response(500, text="Internal Server Error")
+    with patch("httpx.AsyncClient.post", side_effect=[resp_400, resp_500]):
+        with pytest.raises(LLMServiceError) as exc_info:
+            await engine._call_llm_api("Текст стенограммы", is_russian=True)
+        assert "HTTP error 500" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
 async def test_extract_intelligence_llm_api_failure_fallback(
     engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -201,33 +235,68 @@ async def test_extract_intelligence_malformed_json_fallback(
 
 def test_local_dynamic_summarizer_helper_functions() -> None:
     """Directly tests LocalDynamicSummarizer helper methods."""
-    raw_text = "Short text."
-    sentences = LocalDynamicSummarizer.split_into_sentences(raw_text)
-    assert isinstance(sentences, list)
+    # Empty sentences handling
+    assert LocalDynamicSummarizer.extract_title([], is_russian=True) == "Обсуждение встречи"
+    assert LocalDynamicSummarizer.extract_title([], is_russian=False) == "Meeting Discussion"
+    assert "не содержит" in LocalDynamicSummarizer.extract_summary([], is_russian=True)
+    assert "does not contain" in LocalDynamicSummarizer.extract_summary([], is_russian=False)
 
-    title = LocalDynamicSummarizer.extract_title(sentences, is_russian=False)
-    assert isinstance(title, str)
-    assert title != ""
+    # Short clean first sentence
+    short_title_ru = LocalDynamicSummarizer.extract_title(["Да."], is_russian=True)
+    assert short_title_ru == "Да."
 
-    summary = LocalDynamicSummarizer.extract_summary(sentences, is_russian=False)
-    assert isinstance(summary, str)
+    # Long clean sentence with stop words only (len > 40, words < 2) -> triggers line 248
+    long_stop_words = "Это все было только для него и для нее и еще потом."
+    title_stop = LocalDynamicSummarizer.extract_title([long_stop_words], is_russian=True)
+    assert title_stop.endswith("...")
 
+    # Action items priorities: HIGH and LOW -> triggers lines 376 and 378
+    actions_high = LocalDynamicSummarizer.extract_action_items(
+        ["Нужно срочно проверить базу данных."], is_russian=True
+    )
+    assert len(actions_high) > 0
+    assert actions_high[0].priority == "HIGH"
+
+    actions_low = LocalDynamicSummarizer.extract_action_items(
+        ["Нужно по возможности обновить документацию к релизу."], is_russian=True
+    )
+    assert len(actions_low) > 0
+    assert actions_low[0].priority == "LOW"
+
+    # Negative sentiment analysis -> triggers line 463
+    sent_neg_ru = LocalDynamicSummarizer.analyze_sentiment(
+        "Возникла проблема, ошибка и критический сбой в системе.", is_russian=True
+    )
+    assert sent_neg_ru == "NEGATIVE"
+
+    sent_neg_en = LocalDynamicSummarizer.analyze_sentiment(
+        "We have a critical blocker, error and severe issue.", is_russian=False
+    )
+    assert sent_neg_en == "NEGATIVE"
+
+    # Decisions fallback
     decisions = LocalDynamicSummarizer.extract_decisions(
         ["We decided to ship feature A."], is_russian=False
     )
     assert len(decisions) > 0
     assert "ship feature A" in decisions[0]
 
-    actions = LocalDynamicSummarizer.extract_action_items(
-        ["John need to create PR ASAP."], is_russian=False
-    )
-    assert len(actions) > 0
-    assert actions[0].priority == "HIGH"
 
-    sentiment = LocalDynamicSummarizer.analyze_sentiment(
-        "Everything is great and excellent!", is_russian=False
-    )
-    assert sentiment == "POSITIVE"
+def test_parse_json_response_edge_cases(engine: LLMIntelligenceEngine) -> None:
+    """Validates parsing JSON payloads with invalid sentiment, priority, or missing title."""
+    payload = {
+        "title": "",
+        "executive_summary": "Test summary",
+        "key_decisions": ["D1"],
+        "action_items": [
+            {"task": "Task 1", "priority": "UNKNOWN_PRIORITY", "owner": None, "due_date": None}
+        ],
+        "overall_sentiment": "INVALID_SENTIMENT",
+    }
+    raw_content = json.dumps(payload)
+    parsed = engine._parse_json_response(raw_content, is_russian=True)
+    assert parsed.overall_sentiment == "NEUTRAL"
+    assert parsed.action_items[0].priority == "MEDIUM"
 
 
 def test_local_dynamic_summarizer_vector_and_cosine_similarity() -> None:
@@ -240,7 +309,6 @@ def test_local_dynamic_summarizer_vector_and_cosine_similarity() -> None:
     vectors = LocalDynamicSummarizer._compute_sentence_vectors(sentences, stop_words={"на", "и"})
     assert len(vectors) == 3
 
-    # Sentences 0 and 1 both discuss FastAPI, so similarity should be higher than with sentence 2
     sim_tech = LocalDynamicSummarizer._cosine_similarity(vectors[0], vectors[1])
     sim_diff = LocalDynamicSummarizer._cosine_similarity(vectors[0], vectors[2])
     assert sim_tech > sim_diff
