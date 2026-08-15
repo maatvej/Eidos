@@ -162,6 +162,14 @@ async def test_root_ui_unauthenticated(client: AsyncClient) -> None:
         pass
 
 
+@pytest.mark.asyncio
+async def test_auth_static_stylesheet_available(client: AsyncClient) -> None:
+    """Validates that auth visual styles CSS is statically served with HTTP 200."""
+    response = await client.get("/static/css/app.css")
+    assert response.status_code == 200
+    assert "auth-page-body" in response.text
+
+
 def test_spa_index_path_fallback() -> None:
     """Validates get_spa_index_path fallback to frontend source index when react dist is absent."""
     from pathlib import Path
