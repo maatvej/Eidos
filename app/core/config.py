@@ -68,6 +68,9 @@ class Settings(BaseSettings):
 
     # Comprehensive Profiling & Performance Diagnostics
     PROFILING_ENABLED: bool = False
+
+    # Frontend Dist Directory for React SPA
+    FRONTEND_DIST_DIR: Path = Path("./frontend/dist")
     PROFILING_OUTPUT_DIR: Path = Path("./profiles")
     PROFILING_SORT_BY: str = "cumulative"
     PROFILING_RESTRICTION_LIMIT: int = 30

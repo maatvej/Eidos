@@ -158,3 +158,16 @@ async def test_root_ui_unauthenticated(client: AsyncClient) -> None:
         assert resp_deep.headers["location"] == f"/accounts/login/?next={deep_job_path}"
     finally:
         pass
+
+
+def test_spa_index_path_fallback() -> None:
+    """Validates get_spa_index_path fallback to static index when react dist is absent."""
+    from pathlib import Path
+
+    from app.main import get_spa_index_path
+
+    with patch.object(Path, "exists", return_value=False):
+        assert get_spa_index_path() == "static/index.html"
+
+    with patch.object(Path, "exists", return_value=True):
+        assert "index.html" in get_spa_index_path()

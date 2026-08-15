@@ -50,7 +50,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> Respon
         # Avoid redirecting REST API calls or static resource requests
         path = request.url.path
         is_api = path.startswith((settings.API_V1_STR, "/api/"))
-        is_static = path.startswith(("/static", "/django-static"))
+        is_static = path.startswith(("/static", "/django-static", "/assets"))
         if not is_api and not is_static:
             next_url = path
             if request.url.query:
@@ -76,10 +76,41 @@ app.include_router(events_router, prefix=settings.API_V1_STR)
 # Mount Static Files for Web UI
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Mount Built React Assets if available
+if settings.FRONTEND_DIST_DIR.exists() and (settings.FRONTEND_DIST_DIR / "assets").exists():
+    app.mount("/assets", StaticFiles(directory=str(settings.FRONTEND_DIST_DIR / "assets")), name="assets")
+
+
+def get_spa_index_path() -> str:
+    """Resolves SPA index.html path favoring compiled React frontend with fallback to static.
+
+    Returns:
+        str: Relative filesystem path to the SPA HTML entry point.
+
+    Example:
+        >>> path = get_spa_index_path()
+        >>> isinstance(path, str)
+        True
+    """
+    react_index = settings.FRONTEND_DIST_DIR / "index.html"
+    if react_index.exists():
+        return str(react_index)
+    return "static/index.html"
+
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    """Health check endpoint."""
+    """Health check endpoint.
+
+    Returns:
+        dict[str, str]: Health and architecture status metadata payload.
+
+    Example:
+        >>> import asyncio
+        >>> res = asyncio.run(health_check())
+        >>> res["status"]
+        'healthy'
+    """
     return {"status": "healthy", "architecture": "django-fastapi-hybrid"}
 
 
@@ -98,8 +129,19 @@ async def serve_spa_app(
     request: Request,
     user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> FileResponse:
-    """Renders web SPA interface for all primary frontend views for authenticated users."""
-    return FileResponse("static/index.html")
+    """Renders web SPA interface for all primary frontend views for authenticated users.
+
+    Args:
+        request: Incoming FastAPI HTTP request instance.
+        user: Authenticated Django user schema extracted from session or bearer token.
+
+    Returns:
+        FileResponse: Static or compiled React SPA index.html.
+
+    Example:
+        >>> # Invoked automatically by FastAPI routing handlers
+    """
+    return FileResponse(get_spa_index_path())
 
 
 # SPA Catch-all Route for client-side deep routing
@@ -109,10 +151,25 @@ async def spa_catch_all(
     full_path: str,
     user: DjangoUserSchema = Depends(get_current_django_user),
 ) -> FileResponse:
-    """Catch-all fallback route serving index.html for client-side routing while protecting APIs."""
+    """Catch-all fallback route serving index.html for client-side routing while protecting APIs.
+
+    Args:
+        request: Incoming FastAPI HTTP request instance.
+        full_path: Unmatched subpath string.
+        user: Authenticated Django user schema extracted from session or bearer token.
+
+    Returns:
+        FileResponse: Static or compiled React SPA index.html.
+
+    Raises:
+        HTTPException: 404 Not Found if path matches protected API, admin, or static prefixes.
+
+    Example:
+        >>> # Invoked automatically by FastAPI routing handlers
+    """
     if (
-        full_path.startswith(("api/", "static/", "django-static/", "admin/", "accounts/"))
+        full_path.startswith(("api/", "static/", "django-static/", "admin/", "accounts/", "assets/"))
         or full_path == "health"
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
-    return FileResponse("static/index.html")
+    return FileResponse(get_spa_index_path())
