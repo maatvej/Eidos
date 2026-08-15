@@ -117,7 +117,7 @@ async def test_process_transcription_job_error_handling() -> None:
 
         updated_job = await repo.get_by_id(job_id)
         assert updated_job.status == JobStatus.FAILED
-        assert "Fatal" in updated_job.error_message
+        assert updated_job.error_message is not None and "Fatal" in updated_job.error_message
 
 
 def test_worker_settings_class() -> None:
@@ -131,23 +131,25 @@ async def test_unified_asgi_application() -> None:
     """Validates UnifiedASGIApplication routing HTTP requests to Django or FastAPI based on URI prefix."""
     django_app = AsyncMock()
     fastapi_app = AsyncMock()
+    mock_receive = AsyncMock()
+    mock_send = AsyncMock()
 
     dispatcher = UnifiedASGIApplication(django_app=django_app, fastapi_app=fastapi_app)
 
     # 1. Admin path -> django_app
     scope_admin = {"type": "http", "path": "/admin/login"}
-    await dispatcher(scope_admin, None, None)
-    django_app.assert_called_once_with(scope_admin, None, None)
+    await dispatcher(scope_admin, mock_receive, mock_send)
+    django_app.assert_called_once_with(scope_admin, mock_receive, mock_send)
 
     # 2. Accounts path -> django_app
     scope_acc = {"type": "http", "path": "/accounts/login/"}
-    await dispatcher(scope_acc, None, None)
+    await dispatcher(scope_acc, mock_receive, mock_send)
     assert django_app.call_count == 2
 
     # 3. REST API path -> fastapi_app
     scope_api = {"type": "http", "path": "/api/v1/transcription/upload"}
-    await dispatcher(scope_api, None, None)
-    fastapi_app.assert_called_once_with(scope_api, None, None)
+    await dispatcher(scope_api, mock_receive, mock_send)
+    fastapi_app.assert_called_once_with(scope_api, mock_receive, mock_send)
 
 
 @pytest.mark.asyncio

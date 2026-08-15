@@ -5,6 +5,7 @@ import asyncio
 import subprocess
 from pathlib import Path
 
+from app.core.config import settings
 from app.core.logging import logger
 from app.domain.exceptions import AudioProcessingError
 
@@ -20,8 +21,14 @@ class FFmpegAudioProcessor:
         cmd = [
             "ffmpeg",
             "-y",
+            "-nostdin",
+            "-threads",
+            str(settings.FFMPEG_THREADS),
             "-i",
             str(input_path),
+            "-vn",
+            "-sn",
+            "-dn",
             "-ar",
             "16000",
             "-ac",

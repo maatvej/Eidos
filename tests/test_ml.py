@@ -143,3 +143,23 @@ def test_inference_engine_align_words_with_speakers() -> None:
     assert utterances[0].text == "One Two"
     assert utterances[1].speaker == "Bob"
     assert utterances[1].text == "Three"
+
+
+def test_inference_engine_load_models_with_faster_whisper(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validates WhisperModel initialization with optimized cpu_threads and device parameters."""
+    engine = InferenceEngine()
+    mock_whisper_class = MagicMock()
+
+    monkeypatch.setattr(settings, "WHISPER_DEVICE", "auto")
+    monkeypatch.setattr(settings, "WHISPER_COMPUTE_TYPE", "auto")
+    monkeypatch.setattr(settings, "WHISPER_CPU_THREADS", 4)
+    monkeypatch.setattr(settings, "WHISPER_NUM_WORKERS", 1)
+
+    with patch.dict("sys.modules", {"faster_whisper": MagicMock(WhisperModel=mock_whisper_class)}):
+        engine.load_models()
+        assert engine._is_loaded is True
+        mock_whisper_class.assert_called_once()
+        _, kwargs = mock_whisper_class.call_args
+        assert kwargs["cpu_threads"] == 4
+        assert kwargs["num_workers"] == 1
+        assert kwargs["compute_type"] in ("int8", "float16")

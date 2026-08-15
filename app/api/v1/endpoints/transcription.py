@@ -67,8 +67,19 @@ async def upload_audio_file(
     safe_filename = file.filename or "uploaded_audio.wav"
     target_path = settings.STORAGE_DIR / f"{job_id}_{safe_filename}"
 
-    content = await file.read()
-    await asyncio.to_thread(target_path.write_bytes, content)
+    # Asynchronously stream upload in chunks directly to disk to prevent RAM spikes and high latency
+    def _write_file_stream() -> None:
+        with open(target_path, "wb") as buffer:
+            while True:
+                chunk = file.file.read(settings.UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                buffer.write(chunk)
+
+    try:
+        await asyncio.to_thread(_write_file_stream)
+    finally:
+        await file.close()
 
     job_entity = TranscriptionJobEntity(
         id=job_id,

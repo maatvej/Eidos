@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     WHISPER_MODEL_SIZE: str = "small"
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
+    WHISPER_CPU_THREADS: int = 4
+    WHISPER_NUM_WORKERS: int = 1
+    WHISPER_BEAM_SIZE: int = 1
+    WHISPER_CONDITION_ON_PREVIOUS_TEXT: bool = False
+    TORCH_NUM_THREADS: int = 4
+    UPLOAD_CHUNK_SIZE: int = 1024 * 1024
+    FFMPEG_THREADS: int = 2
     PYANNOTE_AUTH_TOKEN: str = "hf_dummy_token"
     LLM_API_KEY: str = "mock-key"
     LLM_MODEL_NAME: str = "gpt-4o"

@@ -27,13 +27,29 @@ class InferenceEngine:
         if self._is_loaded:
             return
 
+        self._load_whisper_model()
+        self._load_diarization_pipeline()
+        self._is_loaded = True
+
+    def _load_whisper_model(self) -> None:
         logger.info("Loading Faster-Whisper model...")
         try:
             from faster_whisper import WhisperModel
 
-            compute_type = settings.WHISPER_COMPUTE_TYPE
+            try:
+                torch.set_num_threads(settings.TORCH_NUM_THREADS)
+            except Exception as thread_err:
+                logger.debug(f"Torch thread limit not configured: {thread_err}")
+
             device = settings.WHISPER_DEVICE
-            if not torch.cuda.is_available():
+            compute_type = settings.WHISPER_COMPUTE_TYPE
+
+            if device == "auto":
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            if compute_type == "auto":
+                compute_type = "float16" if device == "cuda" else "int8"
+            elif not torch.cuda.is_available() and device == "cuda":
                 device = "cpu"
                 compute_type = "int8"
 
@@ -41,9 +57,11 @@ class InferenceEngine:
                 settings.WHISPER_MODEL_SIZE,
                 device=device,
                 compute_type=compute_type,
+                cpu_threads=settings.WHISPER_CPU_THREADS,
+                num_workers=settings.WHISPER_NUM_WORKERS,
             )
             logger.info(
-                f"Faster-Whisper ({settings.WHISPER_MODEL_SIZE}) loaded successfully on {device}."
+                f"Faster-Whisper ({settings.WHISPER_MODEL_SIZE}) loaded successfully on {device} ({compute_type}, threads={settings.WHISPER_CPU_THREADS})."
             )
         except Exception as e:
             logger.warning(
@@ -51,28 +69,31 @@ class InferenceEngine:
             )
             self.whisper_model = None
 
-        if settings.PYANNOTE_AUTH_TOKEN and settings.PYANNOTE_AUTH_TOKEN != "hf_dummy_token":
-            try:
-                from pyannote.audio import Pipeline
-
-                self.diarization_pipeline = Pipeline.from_pretrained(
-                    "pyannote/speaker-diarization-3.1", token=settings.PYANNOTE_AUTH_TOKEN
-                )
-                if torch.cuda.is_available() and self.diarization_pipeline:
-                    self.diarization_pipeline.to(torch.device("cuda"))
-                logger.info("PyAnnote speaker diarization pipeline loaded successfully.")
-            except Exception as e:
-                logger.warning(
-                    f"PyAnnote pipeline initialization failed ({e}). Using local turn splitter fallback."
-                )
-                self.diarization_pipeline = None
-        else:
+    def _load_diarization_pipeline(self) -> None:
+        if not settings.PYANNOTE_AUTH_TOKEN or settings.PYANNOTE_AUTH_TOKEN == "hf_dummy_token":
             logger.info(
                 "PyAnnote auth token not configured. Using local smart speaker turn clustering."
             )
             self.diarization_pipeline = None
+            return
 
-        self._is_loaded = True
+        try:
+            from pyannote.audio import Pipeline
+
+            self.diarization_pipeline = Pipeline.from_pretrained(
+                "pyannote/speaker-diarization-3.1", token=settings.PYANNOTE_AUTH_TOKEN
+            )
+            if self.diarization_pipeline:
+                if torch.cuda.is_available():
+                    self.diarization_pipeline.to(torch.device("cuda"))
+                elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+                    self.diarization_pipeline.to(torch.device("mps"))
+            logger.info("PyAnnote speaker diarization pipeline loaded successfully.")
+        except Exception as e:
+            logger.warning(
+                f"PyAnnote pipeline initialization failed ({e}). Using local turn splitter fallback."
+            )
+            self.diarization_pipeline = None
 
     async def process_audio(self, audio_path: Path) -> TranscriptionResult:
         """Runs speech recognition and speaker diarization with precise alignment."""
@@ -124,7 +145,14 @@ class InferenceEngine:
             )
 
         segments, info = self.whisper_model.transcribe(
-            str(audio_path), word_timestamps=True, vad_filter=True
+            str(audio_path),
+            beam_size=settings.WHISPER_BEAM_SIZE,
+            best_of=1,
+            condition_on_previous_text=settings.WHISPER_CONDITION_ON_PREVIOUS_TEXT,
+            word_timestamps=True,
+            vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 500, "speech_pad_ms": 200},
+            temperature=0.0,
         )
 
         extracted_words: list[WordTimestamp] = []

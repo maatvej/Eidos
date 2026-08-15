@@ -206,3 +206,18 @@ async def test_run_local_background_job_helper() -> None:
         await _run_local_background_job(job_id_str)
         mock_start.assert_called_once()
         mock_proc.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_upload_audio_file_streaming_success(client: AsyncClient) -> None:
+    """Validates streaming file upload endpoint, entity persistence, and background task enqueuing."""
+    file_content = b"RIFF\x24\x00\x00\x00WAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\x80>\x00\x00"
+    files = {"file": ("test_stream.wav", file_content, "audio/wav")}
+
+    with patch("app.api.v1.endpoints.transcription._run_local_background_job", new_callable=AsyncMock):
+        resp = await client.post("/api/v1/transcription/upload", files=files)
+        assert resp.status_code == 202
+        data = resp.json()
+        assert "job_id" in data
+        assert data["status"] == "QUEUED_LOCAL"
+        assert data["created_by"] == "test_admin"

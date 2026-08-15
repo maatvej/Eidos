@@ -145,6 +145,7 @@ ignore = [
     "PLC0415", # Imports outside top level (lazy loading of optional/heavy modules)
     "N806",    # Uppercase variable name (e.g. User = get_user_model())
     "B904",    # Within an `except` clause, raise exceptions with `raise ... from`
+    "ASYNC240",# Pathlib sync calls in async routes
 ]
 fixable = ["ALL"]
 unfixable = [
