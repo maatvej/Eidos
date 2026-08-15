@@ -103,7 +103,9 @@ async def test_spa_deep_routes_authenticated(client: AsyncClient) -> None:
     test_routes = [
         "/dashboard",
         "/studio",
+        f"/job/{uuid4()}",
         f"/jobs/{uuid4()}",
+        f"/transcription/{uuid4()}",
         f"/transcriptions/{uuid4()}",
         "/account",
         "/account/history",

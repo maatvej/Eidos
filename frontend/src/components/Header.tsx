@@ -3,7 +3,7 @@ import { Mic, User, LogOut, Sun, Moon, Sparkles } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 
 export const Header: React.FC = () => {
-  const { theme, toggleTheme, user, currentView, setView } = useAppStore();
+  const { theme, toggleTheme, user, currentView, accountTab, jobId, navigate } = useAppStore();
 
   const isAccount = currentView === "account";
 
@@ -14,7 +14,7 @@ export const Header: React.FC = () => {
         href="/"
         onClick={(e) => {
           e.preventDefault();
-          setView("studio", true);
+          navigate("/", { resetState: true });
         }}
         className="flex items-center gap-4 text-inherit no-underline group cursor-pointer focus:outline-none"
         aria-label="Eidos Voice Intelligence — Главная страница"
@@ -43,7 +43,13 @@ export const Header: React.FC = () => {
         {/* View Switcher Toggle */}
         <button
           type="button"
-          onClick={() => setView(isAccount ? "studio" : "account", true)}
+          onClick={() => {
+            if (isAccount) {
+              navigate(jobId ? `/jobs/${jobId}` : "/");
+            } else {
+              navigate(`/account/${accountTab || "history"}`);
+            }
+          }}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-all duration-200 bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25 hover:border-indigo-500/50"
           aria-pressed={isAccount}
           title={isAccount ? "Вернуться в Студию" : "Переключить в Личный кабинет"}

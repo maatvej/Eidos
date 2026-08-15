@@ -13,7 +13,7 @@ export const FileUploadDropzone: React.FC = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("Загрузка файла на сервер...");
 
-  const { setJobState, setCurrentRoute } = useAppStore();
+  const { setJobState, navigate } = useAppStore();
 
   const handleFile = (file: File) => {
     if (!file) return;
@@ -79,8 +79,7 @@ export const FileUploadDropzone: React.FC = () => {
           showToast("Файл передан на ИИ-обработку и диаризацию", "info");
 
           const targetUrl = `/jobs/${newJobId}`;
-          window.history.pushState({}, "", targetUrl);
-          setCurrentRoute(targetUrl);
+          navigate(targetUrl);
         } catch {
           showToast("Ошибка обработки ответа сервера", "error");
         }

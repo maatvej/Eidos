@@ -5,6 +5,7 @@
 
 import { create } from "zustand";
 import {
+  AccountTab,
   AppTheme,
   AppView,
   TranscriptionJobEntity,
@@ -143,7 +144,7 @@ const getInitialTheme = (): AppTheme => {
 const getInitialJobSnapshot = () => {
   if (typeof window !== "undefined") {
     const pathname = window.location.pathname || "";
-    const jobMatch = pathname.match(/^\/(?:jobs|transcriptions)\/([^/?#]+)/);
+    const jobMatch = pathname.match(/^\/(?:jobs|transcriptions|job|transcription)\/([^/?#]+)/);
     if (jobMatch && jobMatch[1]) {
       const urlJobId = decodeURIComponent(jobMatch[1]);
       const saved = StorageHelper.getSavedJobState(urlJobId);
@@ -179,11 +180,29 @@ const getInitialJobSnapshot = () => {
   };
 };
 
+const getInitialAccountTab = (): AccountTab => {
+  if (typeof window !== "undefined") {
+    const pathname = window.location.pathname || "";
+    if (pathname.includes("/profile")) return "profile";
+    if (pathname.includes("/security")) return "security";
+  }
+  return "history";
+};
+
+export interface NavigateOptions {
+  replace?: boolean;
+  seekTime?: number;
+  searchQuery?: string;
+  forceReload?: boolean;
+  resetState?: boolean;
+}
+
 interface AppState {
   theme: AppTheme;
   user: UserProfile | null;
   currentView: AppView;
   currentRoute: string;
+  accountTab: AccountTab;
 
   // Job & Transcription state
   jobId: string | null;
@@ -201,11 +220,18 @@ interface AppState {
   toggleTheme: () => void;
   setUser: (user: UserProfile | null) => void;
   setView: (view: AppView, updateUrl?: boolean) => void;
+  setAccountTab: (tab: AccountTab, updateUrl?: boolean) => void;
   setCurrentRoute: (route: string) => void;
   setJobState: (partial: Partial<AppState>) => void;
   setCurrentTime: (time: number) => void;
   resetJobState: () => void;
   hydrateJob: (jobId: string, options?: { seekTime?: number; searchQuery?: string; forceReload?: boolean }) => Promise<boolean>;
+  navigate: (path: string, options?: NavigateOptions) => Promise<void>;
+  resolveCurrentRoute: (
+    pathname: string,
+    search?: string,
+    options?: { seekTime?: number; searchQuery?: string; forceReload?: boolean }
+  ) => Promise<void>;
   renameSpeakerInState: (oldName: string, newName: string) => void;
 }
 
@@ -214,8 +240,12 @@ const initialSnapshot = getInitialJobSnapshot();
 export const useAppStore = create<AppState>((set, get) => ({
   theme: getInitialTheme(),
   user: null,
-  currentView: StorageHelper.getLastView(),
+  currentView:
+    typeof window !== "undefined" && window.location.pathname.startsWith("/account")
+      ? "account"
+      : StorageHelper.getLastView(),
   currentRoute: typeof window !== "undefined" ? window.location.pathname || "/" : "/",
+  accountTab: getInitialAccountTab(),
 
   jobId: initialSnapshot.jobId,
   status: initialSnapshot.status,
@@ -260,7 +290,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     StorageHelper.saveLastView(view);
     set({ currentView: view });
     if (updateUrl && typeof window !== "undefined") {
-      const targetPath = view === "account" ? "/account/history" : "/";
+      const targetPath =
+        view === "account" ? `/account/${get().accountTab || "history"}` : "/";
+      window.history.pushState({}, "", targetPath);
+      set({ currentRoute: targetPath });
+    }
+  },
+
+  setAccountTab: (tab, updateUrl = true) => {
+    set({ accountTab: tab, currentView: "account" });
+    StorageHelper.saveLastView("account");
+    if (updateUrl && typeof window !== "undefined") {
+      const targetPath = `/account/${tab}`;
       window.history.pushState({}, "", targetPath);
       set({ currentRoute: targetPath });
     }
@@ -304,6 +345,80 @@ export const useAppStore = create<AppState>((set, get) => ({
       initialAudioTime: 0,
       initialSearchQuery: "",
     });
+  },
+
+  navigate: async (path: string, options: NavigateOptions = {}) => {
+    const { replace = false, resetState = false, ...resolveOpts } = options;
+
+    if (typeof window !== "undefined") {
+      if (replace) {
+        window.history.replaceState({}, "", path);
+      } else {
+        window.history.pushState({}, "", path);
+      }
+    }
+
+    if (resetState) {
+      get().resetJobState();
+    }
+
+    const [pathname, searchStr] = path.split("?");
+    const search = searchStr ? `?${searchStr}` : "";
+    await get().resolveCurrentRoute(pathname, search, resolveOpts);
+  },
+
+  resolveCurrentRoute: async (
+    pathname: string,
+    search: string = "",
+    options: { seekTime?: number; searchQuery?: string; forceReload?: boolean } = {}
+  ) => {
+    const fullPath = pathname + (search ? (search.startsWith("?") ? search : `?${search}`) : "");
+    set({ currentRoute: fullPath });
+    const searchParams = new URLSearchParams(search);
+
+    // 1. Account Routes (/account, /account/history, /account/profile, /account/security)
+    if (pathname.startsWith("/account")) {
+      let tab: AccountTab = "history";
+      if (pathname.includes("/profile")) {
+        tab = "profile";
+      } else if (pathname.includes("/security")) {
+        tab = "security";
+      }
+      StorageHelper.saveLastView("account");
+      set({ currentView: "account", accountTab: tab });
+      return;
+    }
+
+    // 2. Job / Transcription Studio Routes (/jobs/:id, /job/:id, /transcriptions/:id, /transcription/:id)
+    const jobMatch = pathname.match(/^\/(?:jobs|transcriptions|job|transcription)\/([^/?#]+)/);
+    if (jobMatch && jobMatch[1]) {
+      const targetJobId = decodeURIComponent(jobMatch[1]);
+      StorageHelper.saveLastView("studio");
+      set({ currentView: "studio" });
+      const seekTime =
+        options.seekTime !== undefined
+          ? options.seekTime
+          : searchParams.get("t")
+          ? parseFloat(searchParams.get("t")!)
+          : undefined;
+      const searchQuery =
+        options.searchQuery !== undefined
+          ? options.searchQuery
+          : searchParams.get("q") || undefined;
+      await get().hydrateJob(targetJobId, {
+        seekTime,
+        searchQuery,
+        forceReload: options.forceReload,
+      });
+      return;
+    }
+
+    // 3. Root / Studio Routes (/ or /studio or /dashboard)
+    StorageHelper.saveLastView("studio");
+    set({ currentView: "studio" });
+    if (pathname === "/" || pathname === "/studio" || pathname === "/dashboard") {
+      get().resetJobState();
+    }
   },
 
   hydrateJob: async (jobId, options = {}) => {

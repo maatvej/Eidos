@@ -16,9 +16,8 @@ import { api } from "../services/api";
 import { AccountTranscriptionItem, UserProfile } from "../types";
 
 export const AccountManagement: React.FC = () => {
-  const { user, setUser, setView, setCurrentRoute } = useAppStore();
+  const { user, setUser, accountTab, setAccountTab, navigate } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<"history" | "profile">("history");
   const [profileData, setProfileData] = useState<UserProfile | null>(user);
   const [transcriptions, setTranscriptions] = useState<AccountTranscriptionItem[]>([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, total_pages: 1 });
@@ -32,6 +31,7 @@ export const AccountManagement: React.FC = () => {
   const [email, setEmail] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Modals
   const [detailItem, setDetailItem] = useState<AccountTranscriptionItem | null>(null);
@@ -49,7 +49,7 @@ export const AccountManagement: React.FC = () => {
         setEmail(data.email || "");
       })
       .catch((err) => console.error("Error loading profile:", err));
-  }, []);
+  }, [setUser]);
 
   // Load transcriptions
   const loadTranscriptions = async (page = pagination.page, search = searchQuery, sort = sortBy) => {
@@ -77,10 +77,12 @@ export const AccountManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    loadTranscriptions(1, searchQuery, sortBy);
-  }, [sortBy]);
+    if (accountTab === "history") {
+      loadTranscriptions(1, searchQuery, sortBy);
+    }
+  }, [accountTab, sortBy]);
 
-  // Sync with URL subtabs if navigated
+  // Keyboard shortcut listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -146,10 +148,7 @@ export const AccountManagement: React.FC = () => {
 
   const handleOpenInStudio = (id: string) => {
     setDetailItem(null);
-    setView("studio", false);
-    const targetUrl = `/jobs/${id}`;
-    window.history.pushState({}, "", targetUrl);
-    setCurrentRoute(targetUrl);
+    navigate(`/jobs/${id}`);
   };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -171,14 +170,19 @@ export const AccountManagement: React.FC = () => {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      showToast("Новый пароль и подтверждение не совпадают", "error");
+      return;
+    }
     try {
       await api.account.changePassword({
         current_password: currentPassword,
         new_password: newPassword,
       });
-      showToast("Пароль успешно изменен!", "success");
+      showToast("Пароль успешно изменён!", "success");
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Не удалось обновить пароль";
       showToast(msg, "error");
@@ -207,12 +211,12 @@ export const AccountManagement: React.FC = () => {
   return (
     <div className="bg-glass border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-8 backdrop-blur-xl shadow-lg transition-all duration-300">
       {/* Navigation Tabs */}
-      <div className="flex gap-3 pb-4 mb-6 border-b border-white/10">
+      <div className="flex flex-wrap gap-2 md:gap-3 pb-4 mb-6 border-b border-white/10">
         <button
           type="button"
-          onClick={() => setActiveTab("history")}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === "history"
+          onClick={() => setAccountTab("history", true)}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+            accountTab === "history"
               ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
               : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
           }`}
@@ -223,20 +227,33 @@ export const AccountManagement: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => setActiveTab("profile")}
-          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-            activeTab === "profile"
+          onClick={() => setAccountTab("profile", true)}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+            accountTab === "profile"
+              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
+              : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
+          }`}
+        >
+          <User className="w-4 h-4" />
+          <span>Профиль</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setAccountTab("security", true)}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-all ${
+            accountTab === "security"
               ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md shadow-indigo-500/25"
               : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
           }`}
         >
           <Shield className="w-4 h-4" />
-          <span>Профиль и безопасность</span>
+          <span>Безопасность и пароль</span>
         </button>
       </div>
 
       {/* History Tab */}
-      {activeTab === "history" && (
+      {accountTab === "history" && (
         <div>
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
@@ -381,14 +398,13 @@ export const AccountManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Profile & Security Tab */}
-      {activeTab === "profile" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Profile Form */}
-          <div className="p-6 rounded-2xl bg-surface-elevated border border-white/10">
-            <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-5">
-              <User className="w-4 h-4 text-indigo-400" />
-              Личные данные
+      {/* Profile Tab */}
+      {accountTab === "profile" && (
+        <div className="max-w-2xl">
+          <div className="p-6 md:p-8 rounded-2xl bg-surface-elevated border border-white/10 shadow-md">
+            <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
+              <User className="w-5 h-5 text-indigo-400" />
+              Личные данные профиля
             </h3>
             <form onSubmit={handleProfileSubmit} className="space-y-4">
               <div>
@@ -440,20 +456,26 @@ export const AccountManagement: React.FC = () => {
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
-              >
-                Сохранить изменения
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
+                >
+                  Сохранить изменения
+                </button>
+              </div>
             </form>
           </div>
+        </div>
+      )}
 
-          {/* Password Change Form */}
-          <div className="p-6 rounded-2xl bg-surface-elevated border border-white/10">
-            <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-5">
-              <Key className="w-4 h-4 text-indigo-400" />
-              Безопасность и пароль
+      {/* Security & Password Tab */}
+      {accountTab === "security" && (
+        <div className="max-w-2xl">
+          <div className="p-6 md:p-8 rounded-2xl bg-surface-elevated border border-white/10 shadow-md">
+            <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
+              <Key className="w-5 h-5 text-indigo-400" />
+              Безопасность и смена пароля
             </h3>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div>
@@ -472,7 +494,7 @@ export const AccountManagement: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-text-secondary mb-1.5">
-                  Новый пароль (мин. 8 символов)
+                  Новый пароль (минимум 8 символов)
                 </label>
                 <input
                   type="password"
@@ -485,10 +507,25 @@ export const AccountManagement: React.FC = () => {
                 />
               </div>
 
-              <div className="pt-8">
+              <div>
+                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                  Подтверждение нового пароля
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+
+              <div className="pt-4">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md hover:opacity-95 transition-all"
                 >
                   Обновить пароль
                 </button>

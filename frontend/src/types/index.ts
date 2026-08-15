@@ -106,6 +106,8 @@ export type AppTheme = "dark" | "light";
 
 export type AppView = "studio" | "account";
 
+export type AccountTab = "history" | "profile" | "security";
+
 export type UIJobStatus = "IDLE" | "LOADING" | "SUCCESS" | "ERROR";
 
 export interface ToastNotification {

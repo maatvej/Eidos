@@ -5,7 +5,7 @@ import { ExecutiveIntelligenceCard } from "./components/ExecutiveIntelligenceCar
 import { TranscriptPlayer } from "./components/TranscriptPlayer";
 import { AccountManagement } from "./components/AccountManagement";
 import { ToastContainer } from "./components/ToastContainer";
-import { useAppStore, StorageHelper } from "./store/useAppStore";
+import { useAppStore } from "./store/useAppStore";
 import { showToast } from "./store/toastStore";
 import { api } from "./services/api";
 
@@ -15,11 +15,9 @@ export const App: React.FC = () => {
     jobId,
     status,
     setUser,
-    setView,
-    setCurrentRoute,
     setJobState,
     hydrateJob,
-    resetJobState,
+    resolveCurrentRoute,
   } = useAppStore();
 
   // Load User Profile on mount
@@ -35,44 +33,14 @@ export const App: React.FC = () => {
   // Client-Side Routing and URL Synchronization
   useEffect(() => {
     const handlePopState = () => {
-      resolveRoute(window.location.pathname, window.location.search);
+      resolveCurrentRoute(window.location.pathname, window.location.search);
     };
 
     window.addEventListener("popstate", handlePopState);
-    resolveRoute(window.location.pathname, window.location.search);
+    resolveCurrentRoute(window.location.pathname, window.location.search);
 
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
-
-  const resolveRoute = (pathname: string, search: string) => {
-    setCurrentRoute(pathname + search);
-    const searchParams = new URLSearchParams(search);
-
-    if (pathname.startsWith("/account")) {
-      setView("account", false);
-      return;
-    }
-
-    const jobMatch = pathname.match(/^\/(?:jobs|transcriptions|job|transcription)\/([^/?#]+)/);
-    if (jobMatch && jobMatch[1]) {
-      setView("studio", false);
-      const targetJobId = decodeURIComponent(jobMatch[1]);
-      hydrateJob(targetJobId, {
-        seekTime: searchParams.get("t") ? parseFloat(searchParams.get("t")!) : undefined,
-        searchQuery: searchParams.get("q") || undefined,
-      });
-      return;
-    }
-
-    // Default studio route / or /studio or /dashboard
-    setView("studio", false);
-    if (pathname === "/" || pathname === "/studio" || pathname === "/dashboard") {
-      const activeJobId = StorageHelper.getActiveJob();
-      if (!activeJobId) {
-        resetJobState();
-      }
-    }
-  };
+  }, [resolveCurrentRoute]);
 
   // Real-time SSE Connection for Transcription Progress Updates
   useEffect(() => {
