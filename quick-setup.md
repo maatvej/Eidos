@@ -9,7 +9,7 @@
    - **Windows** (PowerShell): `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"` или `winget install astral-sh.uv`
    - **Linux / macOS**: `curl -LsSf https://astral.sh/uv/install.sh | sh`
    - **Pip / универсально**: `pip install uv`
-3. **Node.js (18+) и npm** (необходимы для установки зависимостей, сборки и разработки React 19 + TypeScript SPA в директории [`frontend/`](frontend/package.json:1)):
+3. **Node.js (18+) и npm** (необходимы для установки зависимостей, сборки и разработки React 19 + TypeScript SPA в директории [`frontend/`](frontend/package.json)):
    - **Windows**: `winget install OpenJS.NodeJS` или скачайте с [nodejs.org](https://nodejs.org)
    - **Ubuntu / Debian**: `sudo apt update && sudo apt install -y nodejs npm`
    - **macOS**: `brew install node`
@@ -64,7 +64,7 @@ uv build
 
 ### 4. Конфигурация переменных окружения (`.env`)
 
-Создайте файл `.env` в корневой директории проекта (если требуются кастомные ключи и настройки). В режиме локальной разработки класс конфигурации [`app.core.config.Settings`](app/core/config.py:9) и настройки Django в [`app/core/django_settings.py`](app/core/django_settings.py:1) используют безопасные значения по умолчанию:
+Создайте файл `.env` в корневой директории проекта (если требуются кастомные ключи и настройки). В режиме локальной разработки класс конфигурации [`app.core.config.Settings`](app/core/config.py) и настройки Django в [`app/core/django_settings.py`](app/core/django_settings.py) используют безопасные значения по умолчанию:
 
 ```env
 # Режим разработки и базы данных
@@ -92,7 +92,7 @@ LLM_MODEL_NAME=gpt-4o
 Платформа поддерживает два удобных сценария локальной разработки:
 
 #### Вариант A. Единый полнофункциональный сервер (Production-like)
-FastAPI автоматически раздает скомпилированный бандл React SPA из `frontend/dist/` (через [`app.main.get_spa_index_path()`](app/main.py:84)) и обслуживает все REST API, SSE, Django Allauth и Django Admin на порту `8000`:
+FastAPI автоматически раздает скомпилированный бандл React SPA из `frontend/dist/` (через [`app.main.get_spa_index_path()`](app/main.py)) и обслуживает все REST API, SSE, Django Allauth и Django Admin на порту `8000`:
 
 ```bash
 # 1. Собрать фронтенд (если еще не собран)
@@ -102,12 +102,12 @@ npm --prefix frontend run build
 uv run python run_local.py
 ```
 
-Скрипт [`run_local.main()`](run_local.py:34) автоматически:
-- Проверяет наличие FFmpeg через [`run_local.check_ffmpeg()`](run_local.py:21).
-- Создает локальное хранилище файлов [`local_storage/`](local_storage/.gitkeep:1).
-- Собирает статические файлы Django Admin в [`django_static/`](django_static/admin/img/README.md:1).
+Скрипт [`run_local.main()`](run_local.py) автоматически:
+- Проверяет наличие FFmpeg через [`run_local.check_ffmpeg()`](run_local.py).
+- Создает локальное хранилище файлов [`local_storage/`](local_storage/.gitkeep).
+- Собирает статические файлы Django Admin в [`django_static/`](django_static/admin/img/README.md).
 - Применяет миграции базы данных SQLite (`dev_app.db`).
-- Запускает единый ASGI-сервер [`app.asgi.UnifiedASGIApplication`](app/asgi.py:27) через Uvicorn на порту `8000`.
+- Запускает единый ASGI-сервер [`app.asgi.UnifiedASGIApplication`](app/asgi.py) через Uvicorn на порту `8000`.
 
 > Сервер доступен по адресу: **[http://localhost:8000/](http://localhost:8000/)**
 
@@ -123,13 +123,13 @@ uv run python run_local.py
   npm --prefix frontend run dev
   ```
 
-> Откройте в браузере **[http://localhost:5173/](http://localhost:5173/)**. Vite dev-сервер в [`frontend/vite.config.ts`](frontend/vite.config.ts:1) автоматически настроен на проксирование запросов `/api`, `/accounts`, `/admin`, `/static` и `/media` на бэкенд-порт `8000`.
+> Откройте в браузере **[http://localhost:5173/](http://localhost:5173/)**. Vite dev-сервер в [`frontend/vite.config.ts`](frontend/vite.config.ts) автоматически настроен на проксирование запросов `/api`, `/accounts`, `/admin`, `/static` и `/media` на бэкенд-порт `8000`.
 
 ---
 
 ### 6. Создание суперпользователя (Администратор Django)
 
-В терминале выполните команду через [`manage.py.main()`](manage.py:8):
+В терминале выполните команду через [`manage.py.main()`](manage.py):
 
 ```bash
 uv run python manage.py createsuperuser

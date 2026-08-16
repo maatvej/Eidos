@@ -87,7 +87,7 @@ Eidos uses a **Hybrid ASGI Architecture** combining **FastAPI** for high-through
 ### 1. System Requirements
 - **Python 3.11+**
 - **uv** package manager (`curl -LsSf https://astral.sh/uv/install.sh | sh` or `irm https://astral.sh/uv/install.ps1 | iex`)
-- **Node.js 18+ and npm** (Required for building and developing the React 19 + TypeScript SPA in [`frontend/`](frontend/package.json:1))
+- **Node.js 18+ and npm** (Required for building and developing the React 19 + TypeScript SPA in [`frontend/`](frontend/package.json))
 - **FFmpeg 5.0+** (Required for audio probing, channel downmixing to 16kHz mono PCM, and VAD):
   - **Windows**: `winget install Gyan.FFmpeg` or `choco install ffmpeg`
   - **Ubuntu / Debian**: `sudo apt-get update && sudo apt-get install -y ffmpeg libsndfile1`
@@ -142,7 +142,7 @@ uv run python run_local.py
 # Terminal 2: Vite Dev Server with HMR (port 5173)
 npm --prefix frontend run dev
 ```
-> Access the live-reloading UI at **[http://localhost:5173/](http://localhost:5173/)** (API, auth, admin, and static routes are automatically proxied to port `8000` via [`frontend/vite.config.ts`](frontend/vite.config.ts:1)).
+> Access the live-reloading UI at **[http://localhost:5173/](http://localhost:5173/)** (API, auth, admin, and static routes are automatically proxied to port `8000` via [`frontend/vite.config.ts`](frontend/vite.config.ts)).
 
 ### 4. Create Django Superuser
 To access the Django Admin panel at `/admin/`:
