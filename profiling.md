@@ -41,7 +41,7 @@ PROFILING_SORT_BY=cumulative
 PROFILING_RESTRICTION_LIMIT=30
 
 # Префиксы URL-путей, исключаемые из профилирования (статические ресурсы, healthcheck, SSE)
-PROFILING_EXCLUDE_PATHS=["/health", "/static", "/django-static", "/assets", "/events/sse"]
+PROFILING_EXCLUDE_PATHS=["/health", "/static", "/django-static", "/django_static", "/assets", "/frontend", "/api/v1/events", "/sse"]
 ```
 
 ---

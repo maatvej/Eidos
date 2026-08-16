@@ -82,6 +82,7 @@ class Settings(BaseSettings):
         "/django-static",
         "/django_static",
         "/assets",
+        "/frontend",
         "/health",
         "/favicon.ico",
         "/robots.txt",
