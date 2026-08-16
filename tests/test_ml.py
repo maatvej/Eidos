@@ -661,3 +661,65 @@ async def test_inference_engine_process_audio_with_voice_memory_and_unknown_spea
     assert result_unknown.utterances[0].speaker == "Спикер 1"
     assert "Спикер 1" in result_unknown.speaker_embeddings
     assert "Дмитрий Неизвестный" not in result_unknown.speaker_embeddings
+
+
+def test_inference_engine_extract_chunk_features_discrimination_and_branches() -> None:
+    """Validates acoustic feature discrimination between different voice timbres and covers branch edges."""
+    import numpy as np
+
+    engine = InferenceEngine()
+    sr = 16000
+    dur = 2.0
+    t = np.linspace(0, dur, int(sr * dur), endpoint=False)
+    noise = np.random.randn(len(t)) * 0.01
+
+    # Male vocal simulation (120 Hz fundamental)
+    pulse_male = np.zeros_like(t)
+    pulse_male[:: int(sr / 120)] = 1.0
+    sig_male = (
+        np.convolve(
+            pulse_male,
+            np.exp(-t[:400] * 50) * np.sin(2 * np.pi * 700 * t[:400])
+            + np.exp(-t[:400] * 50) * np.sin(2 * np.pi * 1200 * t[:400]),
+            mode="same",
+        )
+        + noise
+    ).astype(np.float32)
+
+    # Female vocal simulation (240 Hz fundamental)
+    pulse_female = np.zeros_like(t)
+    pulse_female[:: int(sr / 240)] = 1.0
+    sig_female = (
+        np.convolve(
+            pulse_female,
+            np.exp(-t[:400] * 50) * np.sin(2 * np.pi * 900 * t[:400])
+            + np.exp(-t[:400] * 50) * np.sin(2 * np.pi * 1800 * t[:400]),
+            mode="same",
+        )
+        + noise
+    ).astype(np.float32)
+
+    # Robotic vocal simulation (400 Hz square wave)
+    sig_robot = (0.3 * np.sign(np.sin(2 * np.pi * 400 * t)) + noise).astype(np.float32)
+
+    feat_male = engine._extract_chunk_features(sig_male, sr, 32)
+    feat_female = engine._extract_chunk_features(sig_female, sr, 32)
+    feat_robot = engine._extract_chunk_features(sig_robot, sr, 32)
+
+    sim_male_female = engine.compute_voice_similarity(feat_male, feat_female)
+    sim_male_robot = engine.compute_voice_similarity(feat_male, feat_robot)
+    sim_female_robot = engine.compute_voice_similarity(feat_female, feat_robot)
+
+    # Must be clearly under the similarity threshold 0.75
+    assert sim_male_female < 0.75
+    assert sim_male_robot < 0.75
+    assert sim_female_robot < 0.75
+
+    # Short chunk edge < 16 samples
+    feat_short = engine._extract_chunk_features(np.zeros(10, dtype=np.float32), sr, 32)
+    assert len(feat_short) == 32
+    assert all(x == 0.0 for x in feat_short)
+
+    # Short chunk triggering max_lag >= len(corr) fallback in pitch estimator
+    feat_small_corr = engine._extract_chunk_features(np.ones(50, dtype=np.float32), sr, 32)
+    assert len(feat_small_corr) == 32

@@ -250,8 +250,85 @@ class InferenceEngine:
         return [float(x) for x in v_combined]
 
     @staticmethod
+    def _compute_mel_log_energies(
+        pre_emphasized: Any,
+        fft_vals: Any,
+        sr: int,
+        num_filters: int = 24,
+    ) -> Any:
+        """Computes log energies from Mel-spaced triangular filterbanks.
+
+        Args:
+            pre_emphasized: Pre-emphasized 1D audio sample array.
+            fft_vals: Magnitude spectrum array from RFFT.
+            sr: Sampling rate in Hz.
+            num_filters: Number of Mel filterbank channels.
+
+        Returns:
+            Numpy 1D array of log filterbank energies.
+
+        Example:
+            >>> import numpy as np
+            >>> e = InferenceEngine._compute_mel_log_energies(np.zeros(160), np.zeros(81), 16000)
+            >>> len(e)
+            24
+        """
+        import numpy as np
+
+        power_spectrum = (fft_vals**2) / (len(pre_emphasized) + 1e-9)
+        low_mel = 2595.0 * np.log10(1.0 + 60.0 / 700.0)
+        high_mel = 2595.0 * np.log10(1.0 + min(7800.0, float(sr) / 2.0) / 700.0)
+        mel_points = np.linspace(low_mel, high_mel, num_filters + 2)
+        hz_points = 700.0 * (10.0 ** (mel_points / 2595.0) - 1.0)
+        bin_points = np.floor((len(pre_emphasized) + 1) * hz_points / sr).astype(int)
+
+        fbank = np.zeros((num_filters, len(fft_vals)), dtype=np.float32)
+        for m in range(1, num_filters + 1):
+            f_m_minus = bin_points[m - 1]
+            f_m = bin_points[m]
+            f_m_plus = bin_points[m + 1]
+            for k in range(f_m_minus, f_m):
+                if f_m > f_m_minus and k < len(fft_vals):
+                    fbank[m - 1, k] = (k - f_m_minus) / (f_m - f_m_minus)
+            for k in range(f_m, f_m_plus):
+                if f_m_plus > f_m and k < len(fft_vals):
+                    fbank[m - 1, k] = (f_m_plus - k) / (f_m_plus - f_m)
+
+        filter_energies = np.dot(fbank, power_spectrum)
+        filter_energies = np.where(filter_energies <= 0, 1e-10, filter_energies)
+        return np.log(filter_energies)
+
+    @staticmethod
+    def _estimate_pitch_f0(chunk: Any, sr: int) -> float:
+        """Estimates fundamental vocal pitch (F0) using autocorrelation.
+
+        Args:
+            chunk: 1D float32 audio chunk.
+            sr: Sampling rate in Hz.
+
+        Returns:
+            Estimated fundamental frequency in Hz.
+
+        Example:
+            >>> import numpy as np
+            >>> pitch = InferenceEngine._estimate_pitch_f0(np.zeros(1600), 16000)
+            >>> pitch > 0
+            True
+        """
+        import numpy as np
+
+        corr = np.correlate(chunk, chunk, mode="full")
+        corr = corr[len(corr) // 2 :]
+        min_lag = int(sr / 500)
+        max_lag = int(sr / 60)
+        if max_lag < len(corr) and min_lag < max_lag:
+            peak_lag = min_lag + int(np.argmax(corr[min_lag:max_lag]))
+            return float(sr) / float(peak_lag) if peak_lag > 0 else 150.0
+        return 150.0
+
+    @staticmethod
     def _extract_chunk_features(chunk: Any, sr: int, target_dim: int) -> list[float]:
-        """Extracts acoustic spectral and timbre features from an isolated audio chunk.
+        """Extracts acoustic spectral, MFCC, and pitch timbre features from an isolated audio chunk.
 
         Args:
             chunk: Audio samples as float32 1D numpy array.
@@ -260,64 +337,69 @@ class InferenceEngine:
 
         Returns:
             List of float feature values of length target_dim.
+
+        Example:
+            >>> feat = InferenceEngine._extract_chunk_features(np.zeros(1600, dtype=np.float32), 16000, 32)
+            >>> len(feat)
+            32
         """
         import numpy as np
 
-        rms = float(np.sqrt(np.mean(chunk**2)))
-        zcr = float(np.mean(np.abs(np.diff(np.signbit(chunk)))))
+        if len(chunk) < 16:
+            return [0.0] * target_dim
 
-        fft_vals = np.abs(np.fft.rfft(chunk * np.hamming(len(chunk))))
-        freqs = np.fft.rfftfreq(len(chunk), 1.0 / sr)
+        # 1. Pre-emphasis and windowed FFT
+        pre_emphasized = np.append(chunk[0], chunk[1:] - 0.97 * chunk[:-1])
+        window = np.hamming(len(pre_emphasized))
+        fft_vals = np.abs(np.fft.rfft(pre_emphasized * window))
+        freqs = np.fft.rfftfreq(len(pre_emphasized), 1.0 / sr)
+
+        # 2. 24 Mel-spaced filterbanks
+        log_energies = InferenceEngine._compute_mel_log_energies(pre_emphasized, fft_vals, sr, 24)
+
+        # 3. DCT-II for 20 Mel-Frequency Cepstral Coefficients (MFCCs c1..c20)
+        num_ceps = 20
+        mfcc = np.zeros(num_ceps, dtype=np.float32)
+        n_bands = len(log_energies)
+        for k in range(1, num_ceps + 1):
+            mfcc[k - 1] = float(
+                np.sum(log_energies * np.cos(np.pi * k * (np.arange(n_bands) + 0.5) / n_bands))
+            )
+        mfcc = mfcc - float(np.mean(mfcc))
+
+        # 4. Vocal pitch and formant resonance metrics
+        f0_est = InferenceEngine._estimate_pitch_f0(chunk, sr)
+        pitch_feature = float((np.log(max(40.0, f0_est)) - np.log(200.0)) * 2.0)
+        zcr = float(np.mean(np.abs(np.diff(np.signbit(chunk))))) - 0.1
         total_energy = float(np.sum(fft_vals)) or 1.0
+        centroid = float((float(np.sum(freqs * fft_vals) / total_energy) - 1500.0) / 1000.0)
 
-        centroid = float(np.sum(freqs * fft_vals) / total_energy) / 4000.0
-        variance = float(np.sum(((freqs - centroid * 4000.0) ** 2) * fft_vals) / total_energy) / 1e6
+        formant_ratio1 = float(log_energies[4] - log_energies[10])
+        formant_ratio2 = float(log_energies[8] - log_energies[16])
+        formant_ratio3 = float(log_energies[12] - log_energies[20])
+        spec_tilt = float((log_energies[2] - log_energies[-2]) / 5.0)
 
-        low_f0 = float(
-            np.sum(fft_vals[np.logical_and(freqs >= 70.0, freqs < 300.0)]) / total_energy
+        extra_features = np.array(
+            [
+                pitch_feature,
+                zcr,
+                centroid,
+                formant_ratio1,
+                formant_ratio2,
+                formant_ratio3,
+                spec_tilt,
+            ],
+            dtype=np.float32,
         )
-        f1 = float(np.sum(fft_vals[np.logical_and(freqs >= 300.0, freqs < 1000.0)]) / total_energy)
-        f2 = float(np.sum(fft_vals[np.logical_and(freqs >= 1000.0, freqs < 2500.0)]) / total_energy)
-        f3 = float(np.sum(fft_vals[np.logical_and(freqs >= 2500.0, freqs < 4500.0)]) / total_energy)
-        high = float(
-            np.sum(fft_vals[np.logical_and(freqs >= 4500.0, freqs < 8000.0)]) / total_energy
-        )
 
-        sub_bands: list[float] = []
-        band_edges = np.geomspace(80, min(8000, sr // 2), num=17)
-        for b_idx in range(16):
-            b_low = float(band_edges[b_idx])
-            b_high = float(band_edges[b_idx + 1])
-            mask = np.logical_and(freqs >= b_low, freqs < b_high)
-            sub_bands.append(float(np.sum(fft_vals[mask]) / total_energy))
-
-        cum_energy = np.cumsum(fft_vals)
-        roll_idx = int(np.searchsorted(cum_energy, 0.85 * total_energy))
-        roll_freq = float(freqs[min(roll_idx, len(freqs) - 1)]) / 4000.0
-        geom_mean = np.exp(np.mean(np.log(fft_vals + 1e-9)))
-        flatness = float(geom_mean / (np.mean(fft_vals) + 1e-9))
-
-        base_feat = [
-            rms,
-            zcr,
-            centroid,
-            variance,
-            low_f0,
-            f1,
-            f2,
-            f3,
-            high,
-            roll_freq,
-            flatness,
-        ]
-        feat = [*base_feat, *sub_bands]
-
-        if len(feat) < target_dim:
-            feat.extend([0.0] * (target_dim - len(feat)))
+        full_vector = np.concatenate([mfcc, extra_features])
+        if len(full_vector) < target_dim:
+            full_vector = np.pad(full_vector, (0, target_dim - len(full_vector)))
         else:
-            feat = feat[:target_dim]
+            full_vector = full_vector[:target_dim]
 
-        return feat
+        norm = float(np.linalg.norm(full_vector)) or 1.0
+        return [float(x) for x in (full_vector / norm)]
 
     @staticmethod
     def _load_audio_pcm(audio_path: Path, target_sr: int = 16000) -> tuple[Any, int]:
