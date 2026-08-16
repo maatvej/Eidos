@@ -38,16 +38,16 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
     if (raw.includes("POS") || raw.includes("ПОЗИ"))
       return {
         label: "Позитивный",
-        className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/35",
+        className: "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/35",
       };
     if (raw.includes("NEG") || raw.includes("НЕГА"))
       return {
         label: "Негативный",
-        className: "bg-red-500/15 text-red-400 border-red-500/35",
+        className: "bg-red-50 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/35",
       };
     return {
       label: "Нейтральный",
-      className: "bg-slate-500/15 text-slate-400 border-slate-500/35",
+      className: "bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-500/15 dark:text-slate-400 dark:border-slate-500/35",
     };
   };
 
@@ -56,16 +56,16 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
     if (raw === "HIGH" || raw === "ВЫСОКИЙ")
       return {
         label: "ВЫСОКИЙ",
-        className: "bg-red-500/15 text-red-400 border-red-500/35",
+        className: "bg-red-50 text-red-700 border-red-300 dark:bg-red-500/15 dark:text-red-400 dark:border-red-500/35",
       };
     if (raw === "MEDIUM" || raw === "СРЕДНИЙ")
       return {
         label: "СРЕДНИЙ",
-        className: "bg-amber-500/15 text-amber-400 border-amber-500/35",
+        className: "bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-500/15 dark:text-amber-400 dark:border-amber-500/35",
       };
     return {
       label: "НИЗКИЙ",
-      className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/35",
+      className: "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-500/35",
     };
   };
 
@@ -99,11 +99,11 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-7 shadow-sm mb-6">
+    <div className="bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm mb-6">
       {status === "LOADING" && (
         <div>
-          <div className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+          <div className="flex items-center gap-3 pb-4 mb-4 border-b border-slate-200 dark:border-white/10">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
               <Sparkles className="w-5 h-5 animate-spin" />
             </div>
             <h2 className="text-base font-bold text-text-primary">ИИ-Аналитика Встречи</h2>
@@ -121,23 +121,23 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
 
       {status === "ERROR" && (
         <div className="text-center py-10 px-4 text-text-muted">
-          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-400 opacity-80" />
-          <h2 className="text-base font-bold text-red-400 mb-1">
+          <AlertCircle className="w-12 h-12 mx-auto mb-3 text-red-500 dark:text-red-400 opacity-80" />
+          <h2 className="text-base font-bold text-red-500 dark:text-red-400 mb-1">
             Не удалось сформировать аналитику
           </h2>
-          <p className="text-xs md:text-sm max-w-md mx-auto">
+          <p className="text-xs md:text-sm max-w-md mx-auto text-slate-600 dark:text-text-muted">
             {errorMessage || "Произошла ошибка при обработке данных встречи."}
           </p>
         </div>
       )}
 
       {(status === "IDLE" || (status === "SUCCESS" && !getEffectiveAnalysis())) && (
-        <div className="text-center py-12 px-4 text-text-muted">
-          <FileText className="w-12 h-12 mx-auto mb-3 opacity-40" />
+        <div className="text-center py-12 px-4 text-slate-500 dark:text-text-muted">
+          <FileText className="w-12 h-12 mx-auto mb-3 opacity-40 text-slate-400 dark:text-slate-500" />
           <h2 className="text-base font-bold text-text-primary mb-1">
             Исполнительная Выжимка Встречи
           </h2>
-          <p className="text-xs md:text-sm max-w-md mx-auto leading-relaxed">
+          <p className="text-xs md:text-sm max-w-md mx-auto leading-relaxed text-slate-600 dark:text-text-muted">
             Загрузите аудиозапись встречи, чтобы получить структурированное резюме, ключевые решения и поручения.
           </p>
         </div>
@@ -152,9 +152,9 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
             return (
               <div>
                 {/* Header */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-white/10">
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-200 dark:border-white/10">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                       <Sparkles className="w-5 h-5" />
                     </div>
                     <div>
@@ -162,7 +162,7 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                         {analysis.title || "Исполнительная Аналитика Встречи"}
                       </h2>
                       {analysis.timestamp && (
-                        <div className="text-xs text-text-muted mt-0.5">
+                        <div className="text-xs text-slate-500 dark:text-text-muted mt-0.5">
                           {analysis.timestamp}
                         </div>
                       )}
@@ -178,12 +178,12 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleCopySummary}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150 active:scale-95"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-text-primary transition-colors duration-150 active:scale-95 shadow-sm"
                       title="Скопировать выжимку"
                     >
                       {copied ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           <span>Скопировано!</span>
                         </>
                       ) : (
@@ -197,16 +197,16 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                 </div>
 
                 {/* Executive Summary */}
-                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-400 flex items-center gap-2 mb-2">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-2">
                   <FileText className="w-3.5 h-3.5" />
                   Главные Тезисы и Резюме
                 </div>
-                <div className="text-sm text-text-primary leading-relaxed bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
+                <div className="text-sm text-text-primary leading-relaxed bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-4 mb-6 shadow-sm">
                   {analysis.executive_summary || "Резюме не сформировано"}
                 </div>
 
                 {/* Key Decisions */}
-                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-400 flex items-center gap-2 mb-2">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Принятые Решения
                 </div>
@@ -215,37 +215,37 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                     analysis.key_decisions.map((dec, idx) => (
                       <li
                         key={idx}
-                        className="flex items-start gap-2.5 p-3 rounded-lg bg-white/5 border border-white/10 text-xs md:text-sm text-text-primary"
+                        className="flex items-start gap-2.5 p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary shadow-sm"
                       >
-                        <span className="w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5">
+                        <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5">
                           ✓
                         </span>
                         <span>{dec}</span>
                       </li>
                     ))
                   ) : (
-                    <li className="p-3 rounded-lg bg-white/5 border border-white/10 text-xs text-text-muted">
+                    <li className="p-3 rounded-lg bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-xs text-text-muted">
                       Ключевые решения не выделены
                     </li>
                   )}
                 </ul>
 
                 {/* Action Items */}
-                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-400 flex items-center gap-2 mb-2">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-2">
                   <ListTodo className="w-3.5 h-3.5" />
                   Задачи и Поручения (Action Items)
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-white/10">
+                <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-transparent shadow-sm">
                   <table className="w-full text-left text-xs md:text-sm border-collapse">
                     <thead>
-                      <tr className="bg-white/5 text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-white/10">
+                      <tr className="bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
                         <th className="py-2.5 px-4">Поручение / Задача</th>
                         <th className="py-2.5 px-4">Ответственный</th>
                         <th className="py-2.5 px-4">Срок</th>
                         <th className="py-2.5 px-4">Приоритет</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                       {analysis.action_items && analysis.action_items.length > 0 ? (
                         analysis.action_items.map((item, idx) => {
                           const priority = getRussianPriority(item.priority);

@@ -9,6 +9,8 @@ import {
   Copy,
   User,
   Key,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useAppStore } from "../store/useAppStore";
 import { showToast } from "../store/toastStore";
@@ -228,16 +230,16 @@ export const AccountManagement: React.FC = () => {
   };
 
   return (
-    <div className="bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl p-6 md:p-8 shadow-sm">
+    <div className="bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-8 shadow-sm">
       {/* Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 md:gap-3 pb-4 mb-6 border-b border-white/10">
+      <div className="flex flex-wrap gap-2 md:gap-3 pb-4 mb-6 border-b border-slate-200 dark:border-white/10">
         <button
           type="button"
           onClick={() => setAccountTab("history", true)}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "history"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
-              : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm"
+              : "bg-slate-100/80 hover:bg-slate-200 text-slate-700 border border-slate-300/80 dark:border-transparent dark:bg-transparent dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/5"
           }`}
         >
           <History className="w-4 h-4" />
@@ -249,8 +251,8 @@ export const AccountManagement: React.FC = () => {
           onClick={() => setAccountTab("profile", true)}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "profile"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
-              : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm"
+              : "bg-slate-100/80 hover:bg-slate-200 text-slate-700 border border-slate-300/80 dark:border-transparent dark:bg-transparent dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/5"
           }`}
         >
           <User className="w-4 h-4" />
@@ -262,8 +264,8 @@ export const AccountManagement: React.FC = () => {
           onClick={() => setAccountTab("security", true)}
           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold transition-colors duration-150 ${
             accountTab === "security"
-              ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm"
-              : "bg-transparent text-text-secondary hover:text-text-primary hover:bg-white/5"
+              ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm"
+              : "bg-slate-100/80 hover:bg-slate-200 text-slate-700 border border-slate-300/80 dark:border-transparent dark:bg-transparent dark:text-text-secondary dark:hover:text-text-primary dark:hover:bg-white/5"
           }`}
         >
           <Shield className="w-4 h-4" />
@@ -277,7 +279,7 @@ export const AccountManagement: React.FC = () => {
           {/* Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
             <div className="flex-1 min-w-[240px] relative">
-              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
+              <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 dark:text-text-muted pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
@@ -286,7 +288,7 @@ export const AccountManagement: React.FC = () => {
                   loadTranscriptions(1, e.target.value, sortBy);
                 }}
                 placeholder="Поиск по названию транскрипции..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-elevated border border-white/10 text-xs md:text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
               />
             </div>
 
@@ -294,7 +296,7 @@ export const AccountManagement: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-surface-elevated border border-white/10 text-xs md:text-sm text-text-primary outline-none cursor-pointer"
+                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none cursor-pointer shadow-sm"
               >
                 <option value="-created_at">Сначала новые</option>
                 <option value="created_at">Сначала старые</option>
@@ -305,7 +307,7 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => loadTranscriptions(pagination.page, searchQuery, sortBy)}
-                className="p-2.5 rounded-xl bg-surface-elevated hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
+                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
                 title="Обновить список"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -314,10 +316,10 @@ export const AccountManagement: React.FC = () => {
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto rounded-xl border border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 shadow-sm bg-white dark:bg-surface-elevated/30">
             <table className="w-full text-left text-xs md:text-sm border-collapse">
               <thead>
-                <tr className="bg-surface-elevated text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-white/10">
+                <tr className="bg-slate-100 dark:bg-surface-elevated text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
                   <th className="py-3 px-4">Название и файл</th>
                   <th className="py-3 px-4">Дата создания</th>
                   <th className="py-3 px-4">Длительность</th>
@@ -325,7 +327,7 @@ export const AccountManagement: React.FC = () => {
                   <th className="py-3 px-4 text-right">Действия</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-200 dark:divide-white/5">
                 {isLoading ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-text-muted">
@@ -339,51 +341,164 @@ export const AccountManagement: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  transcriptions.map((item) => (
-                    <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                      <td className="py-3.5 px-4 font-semibold text-text-primary">
-                        <div>{item.title || "Запись"}</div>
-                        <div className="text-[11px] font-normal font-mono text-text-muted">
-                          {item.original_filename || "—"}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 text-text-secondary">
-                        {formatDate(item.created_at)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-text-secondary">
-                        {formatDuration(item.duration_seconds)}
-                      </td>
-                      <td className="py-3.5 px-4">{getStatusBadge(item.status)}</td>
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenInStudio(item.id)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-400 hover:bg-indigo-500/25 border border-indigo-500/30 transition-colors duration-150"
-                            title="Открыть в интерактивной студии"
-                          >
-                            Студия
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDetailItem(item)}
-                            className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/5 text-text-primary hover:bg-white/10 border border-white/10 transition-colors duration-150"
-                            title="Детали стенограммы"
-                          >
-                            Детали
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteCandidate(item)}
-                            className="p-1 rounded-lg text-red-400 hover:bg-red-500/15 border border-transparent hover:border-red-500/30 transition-colors duration-150"
-                            title="Удалить запись"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  transcriptions.map((item) => {
+                    const isExpanded = detailItem?.id === item.id;
+                    return (
+                      <React.Fragment key={item.id}>
+                        <tr
+                          className={`transition-colors duration-150 ${
+                            isExpanded
+                              ? "bg-indigo-50/70 dark:bg-white/[0.08]"
+                              : "hover:bg-slate-50 dark:hover:bg-white/5"
+                          }`}
+                        >
+                          <td className="py-3.5 px-4 font-semibold text-text-primary">
+                            <div>{item.title || "Запись"}</div>
+                            <div className="text-[11px] font-normal font-mono text-slate-500 dark:text-text-muted">
+                              {item.original_filename || "—"}
+                            </div>
+                          </td>
+                          <td className="py-3.5 px-4 text-slate-600 dark:text-text-secondary">
+                            {formatDate(item.created_at)}
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-text-secondary">
+                            {formatDuration(item.duration_seconds)}
+                          </td>
+                          <td className="py-3.5 px-4">{getStatusBadge(item.status)}</td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenInStudio(item.id)}
+                                className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-400 dark:border-indigo-500/30 dark:hover:bg-indigo-500/25 transition-colors duration-150"
+                                title="Открыть в интерактивной студии"
+                              >
+                                Студия
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDetailItem(isExpanded ? null : item)}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors duration-150 ${
+                                  isExpanded
+                                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                                    : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300 dark:bg-white/5 dark:text-text-primary dark:border-white/10 dark:hover:bg-white/10"
+                                }`}
+                                title={isExpanded ? "Скрыть детали" : "Детали стенограммы"}
+                                aria-expanded={isExpanded}
+                              >
+                                <span>Детали</span>
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                                    isExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteCandidate(item)}
+                                className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/15 border border-transparent hover:border-red-200 dark:hover:border-red-500/30 transition-colors duration-150"
+                                title="Удалить запись"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Dropdown details row attached beneath the item */}
+                        {isExpanded && (
+                          <tr key={`${item.id}-details`} className="bg-slate-50/90 dark:bg-surface-elevated/40 border-y border-slate-300 dark:border-white/10">
+                            <td colSpan={5} className="p-4 md:p-6 animate-in fade-in slide-in-from-top-1 duration-150">
+                              <div className="rounded-2xl p-5 md:p-6 bg-white dark:bg-surface border border-slate-300 dark:border-white/10 shadow-sm space-y-4">
+                                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                                    <h4 className="text-sm md:text-base font-bold text-text-primary">
+                                      {item.title || "Детали транскрипции"}
+                                    </h4>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetailItem(null)}
+                                    className="text-text-muted hover:text-text-primary p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                                    title="Свернуть детали"
+                                  >
+                                    <ChevronUp className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-slate-100 dark:bg-surface-elevated border border-slate-200 dark:border-white/10">
+                                  <audio
+                                    controls
+                                    src={
+                                      item.audio_url ||
+                                      `/api/v1/account/transcriptions/${item.id}/audio`
+                                    }
+                                    className="w-full h-9 rounded-lg outline-none"
+                                  />
+                                </div>
+
+                                <div className="text-xs text-slate-600 dark:text-text-secondary flex flex-wrap gap-x-4 gap-y-2 p-3 rounded-xl bg-slate-50 dark:bg-surface-elevated/50 border border-slate-200 dark:border-white/10">
+                                  <span>
+                                    <strong className="text-text-primary">Файл:</strong> {item.original_filename || "—"}
+                                  </span>
+                                  <span>
+                                    <strong className="text-text-primary">Дата:</strong> {formatDate(item.created_at)}
+                                  </span>
+                                  <span>
+                                    <strong className="text-text-primary">Длительность:</strong> {formatDuration(item.duration_seconds)}
+                                  </span>
+                                  <span>
+                                    <strong className="text-text-primary">Язык:</strong> {(item.language || "ru").toUpperCase()}
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <span className="block text-xs font-bold text-text-primary mb-1.5">
+                                    Текст расшифровки:
+                                  </span>
+                                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-elevated border border-slate-200 dark:border-white/10 max-h-64 overflow-y-auto text-xs md:text-sm leading-relaxed whitespace-pre-wrap text-text-primary">
+                                    {item.transcription_text || "Текст стенограммы отсутствует."}
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-wrap justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-white/10">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.transcription_text) {
+                                        navigator.clipboard.writeText(item.transcription_text);
+                                        showToast("Текст расшифровки скопирован!", "success");
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-text-primary transition-colors duration-150 shadow-sm"
+                                  >
+                                    <Copy className="w-3.5 h-3.5" />
+                                    Копировать текст
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenInStudio(item.id)}
+                                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    Открыть в Студии
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetailItem(null)}
+                                    className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-text-secondary transition-colors duration-150"
+                                  >
+                                    Свернуть
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -400,7 +515,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page <= 1}
                 onClick={() => loadTranscriptions(pagination.page - 1)}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-colors duration-150"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
               >
                 &larr; Назад
               </button>
@@ -408,7 +523,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page >= pagination.total_pages}
                 onClick={() => loadTranscriptions(pagination.page + 1)}
-                className="px-3 py-1.5 rounded-lg bg-surface-elevated hover:bg-white/10 disabled:opacity-30 border border-white/10 text-text-primary transition-colors duration-150"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
               >
                 Вперед &rarr;
               </button>
@@ -420,37 +535,37 @@ export const AccountManagement: React.FC = () => {
       {/* Profile Tab */}
       {accountTab === "profile" && (
         <div className="max-w-2xl">
-          <div className="p-6 md:p-8 rounded-2xl bg-surface-elevated border border-white/10 shadow-md">
+          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 shadow-sm">
             <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
-              <User className="w-5 h-5 text-indigo-400" />
+              <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Личные данные профиля
             </h3>
             <form onSubmit={handleProfileSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Имя пользователя (Логин)
                 </label>
                 <input
                   type="text"
                   disabled
                   value={profileData?.username || ""}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/60 border border-white/5 text-sm text-text-muted cursor-not-allowed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/60 border border-slate-300 dark:border-white/5 text-sm text-slate-500 dark:text-text-muted cursor-not-allowed"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">Имя</label>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">Имя</label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Иван"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Фамилия
                 </label>
                 <input
@@ -458,12 +573,12 @@ export const AccountManagement: React.FC = () => {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Иванов"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Электронная почта
                 </label>
                 <input
@@ -471,14 +586,14 @@ export const AccountManagement: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="user@example.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
                 >
                   Сохранить изменения
                 </button>
@@ -491,14 +606,14 @@ export const AccountManagement: React.FC = () => {
       {/* Security & Password Tab */}
       {accountTab === "security" && (
         <div className="max-w-2xl">
-          <div className="p-6 md:p-8 rounded-2xl bg-surface-elevated border border-white/10 shadow-md">
+          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 shadow-sm">
             <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
-              <Key className="w-5 h-5 text-indigo-400" />
+              <Key className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Безопасность и смена пароля
             </h3>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Текущий пароль
                 </label>
                 <input
@@ -507,12 +622,12 @@ export const AccountManagement: React.FC = () => {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Новый пароль (минимум 8 символов)
                 </label>
                 <input
@@ -522,12 +637,12 @@ export const AccountManagement: React.FC = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-text-secondary mb-1.5">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-text-secondary mb-1.5">
                   Подтверждение нового пароля
                 </label>
                 <input
@@ -537,114 +652,19 @@ export const AccountManagement: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-surface border border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
               <div className="pt-4">
                 <button
                   type="submit"
-                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
+                  className="w-full py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
                 >
                   Обновить пароль
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Detail Modal Drawer */}
-      {detailItem && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setDetailItem(null);
-          }}
-        >
-          <div className="w-full max-w-2xl bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-xl text-text-primary max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-white/10">
-              <h3 className="text-base font-extrabold text-text-primary truncate">
-                {detailItem.title}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setDetailItem(null)}
-                className="text-text-muted hover:text-text-primary text-lg leading-none"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              <div className="p-3 rounded-xl bg-surface border border-white/10">
-                <audio
-                  controls
-                  src={
-                    detailItem.audio_url ||
-                    `/api/v1/account/transcriptions/${detailItem.id}/audio`
-                  }
-                  className="w-full h-9 rounded-lg outline-none"
-                />
-              </div>
-
-              <div className="text-xs text-text-secondary flex flex-wrap gap-x-4 gap-y-1">
-                <span>
-                  <strong>Файл:</strong> {detailItem.original_filename || "—"}
-                </span>
-                <span>
-                  <strong>Дата:</strong> {formatDate(detailItem.created_at)}
-                </span>
-                <span>
-                  <strong>Длительность:</strong> {formatDuration(detailItem.duration_seconds)}
-                </span>
-                <span>
-                  <strong>Язык:</strong> {(detailItem.language || "ru").toUpperCase()}
-                </span>
-              </div>
-
-              <div>
-                <span className="block text-xs font-bold text-text-primary mb-1.5">
-                  Текст расшифровки:
-                </span>
-                <div className="p-4 rounded-xl bg-surface border border-white/10 max-h-64 overflow-y-auto text-xs md:text-sm leading-relaxed whitespace-pre-wrap text-text-primary">
-                  {detailItem.transcription_text || "Текст стенограммы отсутствует."}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap justify-end gap-2.5 pt-4 mt-2 border-t border-white/10">
-              <button
-                type="button"
-                onClick={() => {
-                  if (detailItem.transcription_text) {
-                    navigator.clipboard.writeText(detailItem.transcription_text);
-                    showToast("Текст расшифровки скопирован!", "success");
-                  }
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                Копировать текст
-              </button>
-              <button
-                type="button"
-                onClick={() => handleOpenInStudio(detailItem.id)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-sm hover:opacity-95 transition-opacity duration-150"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Открыть в Студии
-              </button>
-              <button
-                type="button"
-                onClick={() => setDetailItem(null)}
-                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-secondary transition-colors duration-150"
-              >
-                Закрыть
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -659,9 +679,9 @@ export const AccountManagement: React.FC = () => {
             if (e.target === e.currentTarget) setDeleteCandidate(null);
           }}
         >
-          <div className="w-full max-w-md bg-surface-elevated border border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
-            <h3 className="text-base font-extrabold text-red-400 mb-2">Подтверждение удаления</h3>
-            <p className="text-xs md:text-sm text-text-secondary mb-6 leading-relaxed">
+          <div className="w-full max-w-md bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
+            <h3 className="text-base font-extrabold text-red-500 dark:text-red-400 mb-2">Подтверждение удаления</h3>
+            <p className="text-xs md:text-sm text-slate-600 dark:text-text-secondary mb-6 leading-relaxed">
               Вы уверены, что хотите безвозвратно удалить запись «{deleteCandidate.title}» и связанный
               аудиофайл?
             </p>
@@ -669,14 +689,14 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeleteCandidate(null)}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary transition-colors duration-150"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150"
               >
                 Отмена
               </button>
               <button
                 type="button"
                 onClick={executeDelete}
-                className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-colors duration-150 shadow-sm"
+                className="px-4 py-2 rounded-lg text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors duration-150 shadow-sm"
               >
                 Удалить безвозвратно
               </button>

@@ -90,7 +90,7 @@ describe("AccountManagement component", () => {
     expect(navigateSpy).toHaveBeenCalledWith("/jobs/tx-1");
   });
 
-  it("should open detail modal drawer and copy transcript text", async () => {
+  it("should toggle dropdown details row and copy transcript text", async () => {
     render(<AccountManagement />);
 
     await waitFor(() => {
@@ -112,9 +112,17 @@ describe("AccountManagement component", () => {
       useToastStore.getState().toasts.some((t) => t.message.includes("скопирован"))
     ).toBe(true);
 
-    // Close modal
-    const closeBtn = screen.getByText("Закрыть");
-    fireEvent.click(closeBtn);
+    // Collapse details row via 'Свернуть' button
+    const collapseBtn = screen.getByText("Свернуть");
+    fireEvent.click(collapseBtn);
+    expect(screen.queryByText("Текст планерки разработки...")).not.toBeInTheDocument();
+
+    // Re-open and toggle closed via 'Детали' button again
+    fireEvent.click(detailBtns[0]);
+    expect(screen.getByText("Текст планерки разработки...")).toBeInTheDocument();
+
+    const hideDetailsBtn = screen.getByTitle("Скрыть детали");
+    fireEvent.click(hideDetailsBtn);
     expect(screen.queryByText("Текст планерки разработки...")).not.toBeInTheDocument();
   });
 

@@ -8,7 +8,7 @@ export const Header: React.FC = () => {
   const isAccount = currentView === "account";
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-surface-elevated/60 border border-white/10 dark:border-white/10 light:border-slate-200 rounded-2xl shadow-sm">
+    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl shadow-sm">
       {/* Brand Section */}
       <a
         href="/"
@@ -19,7 +19,7 @@ export const Header: React.FC = () => {
         className="flex items-center gap-4 text-inherit no-underline group cursor-pointer focus:outline-none"
         aria-label="Eidos Voice Intelligence — Главная страница"
       >
-        <div className="w-11 h-11 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/25 transition-colors shadow-sm">
+        <div className="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/25 transition-colors shadow-sm">
           <Mic className="w-6 h-6" />
         </div>
         <div>
@@ -27,7 +27,7 @@ export const Header: React.FC = () => {
             <h1 className="text-lg md:text-xl font-extrabold tracking-tight text-text-primary">
               Eidos Voice Intelligence
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 text-indigo-600 border border-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-400 dark:border-indigo-500/30">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               v1.0 Ready
             </span>
@@ -50,7 +50,7 @@ export const Header: React.FC = () => {
               navigate(`/account/${accountTab || "history"}`);
             }
           }}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors duration-150 bg-indigo-500/15 border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/25 hover:border-indigo-500/50"
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-semibold border transition-colors duration-150 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 hover:border-indigo-300 text-indigo-700 dark:bg-indigo-500/15 dark:border-indigo-500/30 dark:text-indigo-400 dark:hover:bg-indigo-500/25 dark:hover:border-indigo-500/50"
           aria-pressed={isAccount}
           title={isAccount ? "Вернуться в Студию" : "Переключить в Личный кабинет"}
         >
@@ -68,8 +68,8 @@ export const Header: React.FC = () => {
         </button>
 
         {/* User Profile Widget */}
-        <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/10 dark:border-white/10 light:border-slate-200 text-text-primary">
-          <div className="w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
+        <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-text-primary">
+          <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-400 flex items-center justify-center">
             <User className="w-3.5 h-3.5" />
           </div>
           <span className="max-w-[140px] truncate font-medium">
@@ -77,7 +77,7 @@ export const Header: React.FC = () => {
           </span>
           <a
             href="/accounts/logout/"
-            className="inline-flex items-center gap-1 text-slate-400 hover:text-red-400 transition-colors ml-1"
+            className="inline-flex items-center gap-1 text-slate-500 hover:text-red-500 dark:text-slate-400 dark:hover:text-red-400 transition-colors ml-1"
             title="Выйти из учетной записи"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -89,7 +89,7 @@ export const Header: React.FC = () => {
         <button
           type="button"
           onClick={toggleTheme}
-          className="w-9 h-9 rounded-xl border border-white/10 dark:border-white/10 light:border-slate-200 bg-white/5 hover:bg-white/10 text-text-primary flex items-center justify-center transition-colors duration-150"
+          className="w-9 h-9 rounded-xl border border-slate-300 dark:border-white/10 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-text-primary flex items-center justify-center transition-colors duration-150"
           aria-label={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
           title={theme === "dark" ? "Переключить на светлую тему" : "Переключить на тёмную тему"}
         >

@@ -139,18 +139,18 @@ export const FileUploadDropzone: React.FC = () => {
       }}
       className={`relative p-8 md:p-10 text-center rounded-2xl border-2 border-dashed transition-colors duration-150 cursor-pointer overflow-hidden shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
         isDragging
-          ? "border-indigo-500 bg-indigo-500/15"
-          : "border-white/15 hover:border-indigo-500 bg-surface-elevated/40 hover:bg-surface-elevated/70"
+          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/15"
+          : "border-slate-300 dark:border-white/15 hover:border-indigo-500 bg-white/90 hover:bg-slate-50 dark:bg-surface-elevated/40 dark:hover:bg-surface-elevated/70"
       }`}
     >
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 transition-colors duration-150">
+      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-150">
         <UploadCloud className="w-8 h-8" />
       </div>
 
       <h2 className="text-base md:text-lg font-bold text-text-primary mb-1">
         Загрузить аудиозапись встречи
       </h2>
-      <p className="text-xs md:text-sm text-text-secondary mb-5">
+      <p className="text-xs md:text-sm text-slate-600 dark:text-text-secondary mb-5">
         Перетащите сюда файл или нажмите для выбора
       </p>
 
@@ -158,7 +158,7 @@ export const FileUploadDropzone: React.FC = () => {
         {ALLOWED_EXTENSIONS.map((ext) => (
           <span
             key={ext}
-            className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-text-secondary uppercase"
+            className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 text-slate-700 dark:text-text-secondary uppercase"
           >
             {ext}
           </span>
@@ -178,8 +178,8 @@ export const FileUploadDropzone: React.FC = () => {
       />
 
       {isUploading && (
-        <div className="mt-6 pt-4 border-t border-white/10">
-          <div className="w-full h-2 rounded-full bg-surface-elevated overflow-hidden">
+        <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10">
+          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-surface-elevated overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-150"
               style={{ width: `${Math.min(Math.max(uploadProgress, 0), 100)}%` }}
