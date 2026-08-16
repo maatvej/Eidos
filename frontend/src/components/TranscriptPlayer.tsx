@@ -194,7 +194,7 @@ export const TranscriptPlayer: React.FC = () => {
   const audioUrl = jobId ? api.transcription.getAudioUrl(jobId) : "";
 
   return (
-    <div className="bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm">
+    <div className="bg-white/95 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm">
       {status === "LOADING" && (
         <div className="text-center py-12 px-4">
           <h3 className="text-base md:text-lg font-bold text-text-primary mb-2">
@@ -255,7 +255,7 @@ export const TranscriptPlayer: React.FC = () => {
             </div>
 
             {/* Ctrl+F Search Bar */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-colors duration-150 shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-950/50 border border-slate-300 dark:border-white/10 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-colors duration-150 shadow-sm">
               <Search className="w-4 h-4 text-slate-500 dark:text-text-muted flex-shrink-0" />
               <input
                 type="text"
@@ -315,7 +315,7 @@ export const TranscriptPlayer: React.FC = () => {
 
           {/* Speakers Toolbar */}
           {uniqueSpeakers.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 mb-5 shadow-sm">
+            <div className="flex flex-wrap items-center gap-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-950/40 border border-slate-300 dark:border-white/10 mb-5 shadow-sm">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-text-secondary uppercase tracking-wider">
                 <Users className="w-3.5 h-3.5" />
                 Спикеры:
@@ -347,7 +347,7 @@ export const TranscriptPlayer: React.FC = () => {
 
           {/* Audio Player Bar */}
           {audioUrl && (
-            <div className="sticky top-4 z-20 p-3 rounded-xl bg-slate-100 dark:bg-surface-elevated border border-slate-300 dark:border-white/15 shadow-md mb-6">
+            <div className="sticky top-4 z-20 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/95 border border-slate-300 dark:border-white/15 shadow-md mb-6">
               <audio
                 ref={audioRef}
                 controls
@@ -371,7 +371,7 @@ export const TranscriptPlayer: React.FC = () => {
               return (
                 <div
                   key={utt.id}
-                  className="p-4 md:p-5 rounded-xl bg-white dark:bg-white/5 hover:bg-slate-50 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 transition-colors duration-150 shadow-sm"
+                  className="p-4 md:p-5 rounded-xl bg-white dark:bg-slate-950/40 hover:bg-slate-50 dark:hover:bg-slate-800/40 border border-slate-300 dark:border-white/10 transition-colors duration-150 shadow-sm"
                 >
                   <div className="flex items-center justify-between mb-2.5">
                     <button
@@ -443,7 +443,7 @@ export const TranscriptPlayer: React.FC = () => {
             if (e.target === e.currentTarget) closeSpeakerRenameModal();
           }}
         >
-          <div className="w-full max-w-md bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-white/10">
               <h3 className="text-base font-extrabold text-text-primary flex items-center gap-2">
                 <Mic className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -474,7 +474,7 @@ export const TranscriptPlayer: React.FC = () => {
                   if (e.key === "Enter") executeSpeakerRename();
                   if (e.key === "Escape") closeSpeakerRenameModal();
                 }}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-300 dark:border-white/15 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/15 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
               />
             </div>
 

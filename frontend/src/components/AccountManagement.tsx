@@ -230,7 +230,7 @@ export const AccountManagement: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-8 shadow-sm">
+    <div className="bg-white/95 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-8 shadow-sm">
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2 md:gap-3 pb-4 mb-6 border-b border-slate-200 dark:border-white/10">
         <button
@@ -288,7 +288,7 @@ export const AccountManagement: React.FC = () => {
                   loadTranscriptions(1, e.target.value, sortBy);
                 }}
                 placeholder="Поиск по названию транскрипции..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
               />
             </div>
 
@@ -296,7 +296,7 @@ export const AccountManagement: React.FC = () => {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none cursor-pointer shadow-sm"
+                className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-xs md:text-sm text-text-primary outline-none cursor-pointer shadow-sm"
               >
                 <option value="-created_at">Сначала новые</option>
                 <option value="created_at">Сначала старые</option>
@@ -307,7 +307,7 @@ export const AccountManagement: React.FC = () => {
               <button
                 type="button"
                 onClick={() => loadTranscriptions(pagination.page, searchQuery, sortBy)}
-                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
+                className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
                 title="Обновить список"
               >
                 <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -316,10 +316,10 @@ export const AccountManagement: React.FC = () => {
           </div>
 
           {/* Table Container */}
-          <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 shadow-sm bg-white dark:bg-surface-elevated/30">
+          <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 shadow-sm bg-white dark:bg-slate-950/30">
             <table className="w-full text-left text-xs md:text-sm border-collapse">
               <thead>
-                <tr className="bg-slate-100 dark:bg-surface-elevated text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
+                <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
                   <th className="py-3 px-4">Название и файл</th>
                   <th className="py-3 px-4">Дата создания</th>
                   <th className="py-3 px-4">Длительность</th>
@@ -348,7 +348,7 @@ export const AccountManagement: React.FC = () => {
                         <tr
                           className={`transition-colors duration-150 ${
                             isExpanded
-                              ? "bg-indigo-50/70 dark:bg-white/[0.08]"
+                              ? "bg-indigo-50/70 dark:bg-slate-800/40"
                               : "hover:bg-slate-50 dark:hover:bg-white/5"
                           }`}
                         >
@@ -407,9 +407,9 @@ export const AccountManagement: React.FC = () => {
 
                         {/* Dropdown details row attached beneath the item */}
                         {isExpanded && (
-                          <tr key={`${item.id}-details`} className="bg-slate-50/90 dark:bg-surface-elevated/40 border-y border-slate-300 dark:border-white/10">
+                          <tr key={`${item.id}-details`} className="bg-slate-100/70 dark:bg-slate-950/60 border-y border-slate-300 dark:border-white/10">
                             <td colSpan={5} className="p-4 md:p-6 animate-in fade-in slide-in-from-top-1 duration-150">
-                              <div className="rounded-2xl p-5 md:p-6 bg-white dark:bg-surface border border-slate-300 dark:border-white/10 shadow-sm space-y-4">
+                              <div className="rounded-2xl p-5 md:p-6 bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 shadow-sm space-y-4">
                                 <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                                   <div className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
@@ -427,7 +427,7 @@ export const AccountManagement: React.FC = () => {
                                   </button>
                                 </div>
 
-                                <div className="p-3 rounded-xl bg-slate-100 dark:bg-surface-elevated border border-slate-200 dark:border-white/10">
+                                <div className="p-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10">
                                   <audio
                                     controls
                                     src={
@@ -438,7 +438,7 @@ export const AccountManagement: React.FC = () => {
                                   />
                                 </div>
 
-                                <div className="text-xs text-slate-600 dark:text-text-secondary flex flex-wrap gap-x-4 gap-y-2 p-3 rounded-xl bg-slate-50 dark:bg-surface-elevated/50 border border-slate-200 dark:border-white/10">
+                                <div className="text-xs text-slate-600 dark:text-text-secondary flex flex-wrap gap-x-4 gap-y-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-white/10">
                                   <span>
                                     <strong className="text-text-primary">Файл:</strong> {item.original_filename || "—"}
                                   </span>
@@ -457,7 +457,7 @@ export const AccountManagement: React.FC = () => {
                                   <span className="block text-xs font-bold text-text-primary mb-1.5">
                                     Текст расшифровки:
                                   </span>
-                                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-surface-elevated border border-slate-200 dark:border-white/10 max-h-64 overflow-y-auto text-xs md:text-sm leading-relaxed whitespace-pre-wrap text-text-primary">
+                                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 max-h-64 overflow-y-auto text-xs md:text-sm leading-relaxed whitespace-pre-wrap text-text-primary">
                                     {item.transcription_text || "Текст стенограммы отсутствует."}
                                   </div>
                                 </div>
@@ -515,7 +515,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page <= 1}
                 onClick={() => loadTranscriptions(pagination.page - 1)}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
               >
                 &larr; Назад
               </button>
@@ -523,7 +523,7 @@ export const AccountManagement: React.FC = () => {
                 type="button"
                 disabled={pagination.page >= pagination.total_pages}
                 onClick={() => loadTranscriptions(pagination.page + 1)}
-                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-surface-elevated dark:hover:bg-white/10 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
+                className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-35 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-white/10 text-text-primary transition-colors duration-150 shadow-sm"
               >
                 Вперед &rarr;
               </button>
@@ -535,7 +535,7 @@ export const AccountManagement: React.FC = () => {
       {/* Profile Tab */}
       {accountTab === "profile" && (
         <div className="max-w-2xl">
-          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 shadow-sm">
+          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 shadow-sm">
             <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
               <User className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Личные данные профиля
@@ -549,7 +549,7 @@ export const AccountManagement: React.FC = () => {
                   type="text"
                   disabled
                   value={profileData?.username || ""}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-900/60 border border-slate-300 dark:border-white/5 text-sm text-slate-500 dark:text-text-muted cursor-not-allowed"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-950/60 border border-slate-300 dark:border-white/5 text-sm text-slate-500 dark:text-text-muted cursor-not-allowed"
                 />
               </div>
 
@@ -560,7 +560,7 @@ export const AccountManagement: React.FC = () => {
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Иван"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -573,7 +573,7 @@ export const AccountManagement: React.FC = () => {
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Иванов"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -586,7 +586,7 @@ export const AccountManagement: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="user@example.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -606,7 +606,7 @@ export const AccountManagement: React.FC = () => {
       {/* Security & Password Tab */}
       {accountTab === "security" && (
         <div className="max-w-2xl">
-          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/10 shadow-sm">
+          <div className="p-6 md:p-8 rounded-2xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 shadow-sm">
             <h3 className="text-sm md:text-base font-bold text-text-primary uppercase tracking-wider flex items-center gap-2 mb-6">
               <Key className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
               Безопасность и смена пароля
@@ -622,7 +622,7 @@ export const AccountManagement: React.FC = () => {
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -637,7 +637,7 @@ export const AccountManagement: React.FC = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -652,7 +652,7 @@ export const AccountManagement: React.FC = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/10 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
                 />
               </div>
 
@@ -679,7 +679,7 @@ export const AccountManagement: React.FC = () => {
             if (e.target === e.currentTarget) setDeleteCandidate(null);
           }}
         >
-          <div className="w-full max-w-md bg-white dark:bg-surface-elevated border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
             <h3 className="text-base font-extrabold text-red-500 dark:text-red-400 mb-2">Подтверждение удаления</h3>
             <p className="text-xs md:text-sm text-slate-600 dark:text-text-secondary mb-6 leading-relaxed">
               Вы уверены, что хотите безвозвратно удалить запись «{deleteCandidate.title}» и связанный

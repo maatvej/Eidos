@@ -140,7 +140,7 @@ export const FileUploadDropzone: React.FC = () => {
       className={`relative p-8 md:p-10 text-center rounded-2xl border-2 border-dashed transition-colors duration-150 cursor-pointer overflow-hidden shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
         isDragging
           ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-500/15"
-          : "border-slate-300 dark:border-white/15 hover:border-indigo-500 bg-white/90 hover:bg-slate-50 dark:bg-surface-elevated/40 dark:hover:bg-surface-elevated/70"
+          : "border-slate-300 dark:border-white/15 hover:border-indigo-500 bg-white/80 hover:bg-slate-50 dark:bg-slate-900/60 dark:hover:bg-slate-900/80"
       }`}
     >
       <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 dark:bg-indigo-500/15 border border-indigo-200 dark:border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 transition-colors duration-150">
@@ -179,7 +179,7 @@ export const FileUploadDropzone: React.FC = () => {
 
       {isUploading && (
         <div className="mt-6 pt-4 border-t border-slate-200 dark:border-white/10">
-          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-surface-elevated overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-[width] duration-150"
               style={{ width: `${Math.min(Math.max(uploadProgress, 0), 100)}%` }}

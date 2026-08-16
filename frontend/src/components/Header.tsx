@@ -8,7 +8,7 @@ export const Header: React.FC = () => {
   const isAccount = currentView === "account";
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl shadow-sm">
+    <header className="flex flex-wrap items-center justify-between gap-4 py-4 px-6 mb-6 bg-white/95 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 rounded-2xl shadow-sm">
       {/* Brand Section */}
       <a
         href="/"

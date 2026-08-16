@@ -99,7 +99,7 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
   };
 
   return (
-    <div className="bg-white/90 dark:bg-surface-elevated/60 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm mb-6">
+    <div className="bg-white/95 dark:bg-slate-900/80 border border-slate-300 dark:border-white/10 rounded-2xl p-6 md:p-7 shadow-sm mb-6">
       {status === "LOADING" && (
         <div>
           <div className="flex items-center gap-3 pb-4 mb-4 border-b border-slate-200 dark:border-white/10">
@@ -235,10 +235,10 @@ export const ExecutiveIntelligenceCard: React.FC = () => {
                   <ListTodo className="w-3.5 h-3.5" />
                   Задачи и Поручения (Action Items)
                 </div>
-                <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-transparent shadow-sm">
+                <div className="overflow-x-auto rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-slate-950/30 shadow-sm">
                   <table className="w-full text-left text-xs md:text-sm border-collapse">
                     <thead>
-                      <tr className="bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
+                      <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-text-secondary uppercase text-[11px] font-bold tracking-wider border-b border-slate-300 dark:border-white/10">
                         <th className="py-2.5 px-4">Поручение / Задача</th>
                         <th className="py-2.5 px-4">Ответственный</th>
                         <th className="py-2.5 px-4">Срок</th>
