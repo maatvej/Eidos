@@ -572,9 +572,66 @@ def test_inference_engine_extract_speaker_embedding_stereo_and_short(tmp_path: P
         assert len(emb_small) == 16
 
 
+def test_inference_engine_load_audio_pcm_branches(tmp_path: Path) -> None:
+    """Validates _load_audio_pcm companion 16k files, ffmpeg decoding, and failure paths."""
+    engine = InferenceEngine()
+
+    # 1. Companion 16k file
+    base_file = tmp_path / "meeting.mp3"
+    base_file.write_bytes(b"dummy mp3 header")
+    comp_file = tmp_path / "meeting.mp3_16k.wav"
+    create_test_wav(comp_file, channels=1, duration=1.0)
+
+    data, sr = engine._load_audio_pcm(base_file)
+    assert len(data) > 0
+    assert sr == 16000
+
+    # 1b. Stem 16k file
+    stem_base = tmp_path / "call.aac"
+    stem_base.write_bytes(b"dummy aac header")
+    stem_file = tmp_path / "call_16k.wav"
+    create_test_wav(stem_file, channels=1, duration=1.0)
+
+    data_stem, sr_stem = engine._load_audio_pcm(stem_base)
+    assert len(data_stem) > 0
+    assert sr_stem == 16000
+
+    # 2. FFmpeg decoding for real file
+    raw_wav = tmp_path / "real.wav"
+    create_test_wav(raw_wav, channels=1, duration=1.0)
+    fake_mp3 = tmp_path / "real.mp3"
+    fake_mp3.write_bytes(raw_wav.read_bytes())  # wave content but .mp3 ext
+
+    data_ff, sr_ff = engine._load_audio_pcm(fake_mp3)
+    assert len(data_ff) > 0
+    assert sr_ff == 16000
+
+    # 3. Missing file raises RuntimeError
+    with pytest.raises(RuntimeError):
+        engine._load_audio_pcm(tmp_path / "totally_non_existent.flac")
+
+
+def test_heuristic_embedding_fallback_cross_file_isolation() -> None:
+    """Validates that heuristic fallback embeddings from different files do not collide."""
+    engine = InferenceEngine()
+    segs = [{"start": 0.5, "end": 4.1, "words": [1, 2, 3]}]
+
+    emb_file_a = engine._heuristic_embedding_fallback(segs, 32, audio_identifier="file_a.mp3")
+    emb_file_b = engine._heuristic_embedding_fallback(segs, 32, audio_identifier="file_b.mp3")
+    emb_file_a2 = engine._heuristic_embedding_fallback(segs, 32, audio_identifier="file_a.mp3")
+
+    sim_same = engine.compute_voice_similarity(emb_file_a, emb_file_a2)
+    sim_diff = engine.compute_voice_similarity(emb_file_a, emb_file_b)
+
+    assert sim_same == pytest.approx(1.0, abs=1e-4)
+    assert sim_diff < 0.75
+
+
 @pytest.mark.asyncio
-async def test_inference_engine_process_audio_with_voice_memory(tmp_path: Path) -> None:
-    """Validates end-to-end process_audio execution with automatic voice memory recognition."""
+async def test_inference_engine_process_audio_with_voice_memory_and_unknown_speakers(
+    tmp_path: Path,
+) -> None:
+    """Validates process_audio recognizing known speaker while leaving unknown voices as default."""
     engine = InferenceEngine()
     dummy_audio = tmp_path / "voice_demo.wav"
     create_test_wav(dummy_audio, channels=1, duration=1.0)
@@ -584,9 +641,23 @@ async def test_inference_engine_process_audio_with_voice_memory(tmp_path: Path) 
 
     profile = VoiceProfileEntity(user_id=1, name="Константин", embedding=raw_emb)
 
+    # 1. Matching known speaker
     result = await engine.process_audio(dummy_audio, voice_profiles=[profile])
     assert isinstance(result, TranscriptionResult)
     assert len(result.utterances) > 0
-    # First utterance should be recognized as Konstantin
     assert result.utterances[0].speaker == "Константин"
     assert "Константин" in result.speaker_embeddings
+
+    # 2. Unknown speakers in new file remain default 'Спикер 1' and 'Спикер 2'
+    unknown_audio = tmp_path / "unknown_voice.wav"
+    create_test_wav(unknown_audio, channels=1, duration=1.0)
+    # Profile of a completely different person with orthogonal embedding
+    unmatched_profile = VoiceProfileEntity(
+        user_id=1, name="Дмитрий Неизвестный", embedding=[0.0] * 31 + [1.0]
+    )
+
+    result_unknown = await engine.process_audio(unknown_audio, voice_profiles=[unmatched_profile])
+    assert isinstance(result_unknown, TranscriptionResult)
+    assert result_unknown.utterances[0].speaker == "Спикер 1"
+    assert "Спикер 1" in result_unknown.speaker_embeddings
+    assert "Дмитрий Неизвестный" not in result_unknown.speaker_embeddings

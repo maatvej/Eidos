@@ -320,34 +320,108 @@ class InferenceEngine:
         return feat
 
     @staticmethod
+    def _load_audio_pcm(audio_path: Path, target_sr: int = 16000) -> tuple[Any, int]:
+        """Loads PCM float32 mono audio array from WAV file or decodes via FFmpeg.
+
+        Args:
+            audio_path: Path to target audio file on disk.
+            target_sr: Target sample rate in Hz.
+
+        Returns:
+            Tuple of (audio_data_float32_array, sample_rate).
+
+        Raises:
+            RuntimeError: If audio file cannot be loaded or decoded.
+        """
+        import subprocess
+        import wave
+
+        import numpy as np
+
+        # 1. Check normalized 16k companion wav if original path is non-wav or missing
+        candidates = [audio_path]
+        companion_16k = audio_path.with_name(f"{audio_path.name}_16k.wav")
+        if companion_16k.exists() and companion_16k != audio_path:
+            candidates.insert(0, companion_16k)
+        stem_16k = audio_path.with_name(f"{audio_path.stem}_16k.wav")
+        if stem_16k.exists() and stem_16k not in candidates:
+            candidates.insert(0, stem_16k)
+
+        for cand in candidates:
+            if cand.exists() and cand.suffix.lower() == ".wav":
+                try:
+                    with wave.open(str(cand), "rb") as wf:
+                        sr = wf.getframerate()
+                        n_channels = wf.getnchannels()
+                        sampwidth = wf.getsampwidth()
+                        raw_bytes = wf.readframes(wf.getnframes())
+
+                    dtype = np.int16 if sampwidth == 2 else np.int32
+                    audio_data = np.frombuffer(raw_bytes, dtype=dtype).astype(np.float32)
+                    if n_channels > 1:
+                        audio_data = audio_data.reshape(-1, n_channels).mean(axis=1)
+                    max_val = np.max(np.abs(audio_data)) or 1.0
+                    return (audio_data / max_val), sr
+                except Exception as cand_err:
+                    logger.debug(f"Direct WAV candidate read skipped for '{cand}': {cand_err}")
+
+        # 2. Try FFmpeg pipe decoding for any format (MP3, M4A, OGG, AAC, etc.)
+        if audio_path.exists():
+            try:
+                cmd = [
+                    "ffmpeg",
+                    "-nostdin",
+                    "-threads",
+                    "0",
+                    "-i",
+                    str(audio_path),
+                    "-f",
+                    "s16le",
+                    "-ac",
+                    "1",
+                    "-ar",
+                    str(target_sr),
+                    "pipe:1",
+                ]
+                res = subprocess.run(cmd, capture_output=True, check=True)  # noqa: S603
+                audio_data = np.frombuffer(res.stdout, dtype=np.int16).astype(np.float32)
+                max_val = np.max(np.abs(audio_data)) or 1.0
+                return (audio_data / max_val), target_sr
+            except Exception as ffmpeg_err:
+                logger.debug(f"FFmpeg PCM decoding skipped for '{audio_path}': {ffmpeg_err}")
+
+        raise RuntimeError(f"Could not load or decode PCM audio from {audio_path}")
+
+    @staticmethod
     def _heuristic_embedding_fallback(
-        segments: list[dict[str, Any]], target_dim: int
+        segments: list[dict[str, Any]], target_dim: int, audio_identifier: str = ""
     ) -> list[float]:
         """Calculates deterministic normalized unit vector based on segment cadence and dynamics.
 
         Args:
             segments: Audio segment dictionaries.
             target_dim: Expected output dimensionality.
+            audio_identifier: Optional audio path identifier to prevent cross-file collision.
 
         Returns:
             Normalized float feature list of length target_dim.
         """
+        import hashlib
+
         import numpy as np
 
         total_dur = sum(max(0.1, s.get("end", 0.0) - s.get("start", 0.0)) for s in segments)
-        avg_dur = total_dur / len(segments)
-        first_start = segments[0].get("start", 0.0)
+        first_start = segments[0].get("start", 0.0) if segments else 0.0
         words_count = sum(len(s.get("words", [])) for s in segments)
         tempo = words_count / max(0.1, total_dur)
 
+        seed_bytes = f"{audio_identifier}:{first_start:.2f}:{total_dur:.2f}:{tempo:.2f}".encode()
         feat_fallback = [0.0] * target_dim
-        feat_fallback[0] = float(min(1.0, total_dur / 10.0))
-        feat_fallback[1] = float(min(1.0, avg_dur / 3.0))
-        feat_fallback[2] = float((first_start % 5.0) / 5.0)
-        feat_fallback[3] = float(min(1.0, tempo / 5.0))
-        feat_fallback[4] = 0.5
-        for k in range(5, target_dim):
-            feat_fallback[k] = float(((k * 7 + int(first_start * 10)) % 100) / 100.0)
+
+        for k in range(target_dim):
+            h_k = hashlib.sha256(seed_bytes + bytes([k])).digest()
+            val = int.from_bytes(h_k[:2], "little", signed=True) / 32768.0
+            feat_fallback[k] = float(val)
 
         v_arr = np.array(feat_fallback, dtype=np.float32)
         norm = float(np.linalg.norm(v_arr)) or 1.0
@@ -377,27 +451,12 @@ class InferenceEngine:
         if not segments:
             return [0.0] * target_dim
 
-        import wave
-
         import numpy as np
 
         collected_vectors: list[np.ndarray] = []
 
         try:
-            with wave.open(str(audio_path), "rb") as wf:
-                sr = wf.getframerate()
-                n_channels = wf.getnchannels()
-                sampwidth = wf.getsampwidth()
-                n_frames = wf.getnframes()
-                raw_bytes = wf.readframes(n_frames)
-
-            dtype = np.int16 if sampwidth == 2 else np.int32
-            audio_data = np.frombuffer(raw_bytes, dtype=dtype).astype(np.float32)
-            if n_channels > 1:
-                audio_data = audio_data.reshape(-1, n_channels).mean(axis=1)
-
-            max_val = np.max(np.abs(audio_data)) or 1.0
-            audio_data = audio_data / max_val
+            audio_data, sr = self._load_audio_pcm(audio_path)
 
             for seg in segments:
                 start_frame = max(0, int(seg["start"] * sr))
@@ -410,10 +469,12 @@ class InferenceEngine:
                 collected_vectors.append(np.array(feat, dtype=np.float32))
 
         except Exception as e:
-            logger.debug(f"Direct WAV speaker embedding skipped ({e}). Using heuristic vector.")
+            logger.debug(f"Direct PCM speaker embedding skipped ({e}). Using heuristic vector.")
 
         if not collected_vectors:
-            return self._heuristic_embedding_fallback(segments, target_dim)
+            return self._heuristic_embedding_fallback(
+                segments, target_dim, audio_identifier=str(audio_path)
+            )
 
         mean_vec = np.mean(collected_vectors, axis=0)
         norm = float(np.linalg.norm(mean_vec)) or 1.0
@@ -720,28 +781,12 @@ class InferenceEngine:
         self, audio_path: Path, segments: list[dict[str, Any]]
     ) -> list[list[float]]:
         """Extracts normalized energy, zero-crossing, and multi-band spectral features from audio segments."""
-        import wave
-
         import numpy as np
 
         features: list[list[float]] = []
 
         try:
-            with wave.open(str(audio_path), "rb") as wf:
-                sr = wf.getframerate()
-                n_channels = wf.getnchannels()
-                sampwidth = wf.getsampwidth()
-                n_frames = wf.getnframes()
-                raw_bytes = wf.readframes(n_frames)
-
-            dtype = np.int16 if sampwidth == 2 else np.int32
-            audio_data = np.frombuffer(raw_bytes, dtype=dtype).astype(np.float32)
-            if n_channels > 1:
-                audio_data = audio_data.reshape(-1, n_channels).mean(axis=1)
-
-            # Max amplitude normalization
-            max_val = np.max(np.abs(audio_data)) or 1.0
-            audio_data = audio_data / max_val
+            audio_data, sr = self._load_audio_pcm(audio_path)
 
             for seg in segments:
                 start_frame = max(0, int(seg["start"] * sr))
@@ -762,22 +807,22 @@ class InferenceEngine:
                 fft_vals = np.abs(np.fft.rfft(chunk * np.hamming(len(chunk))))
                 freqs = np.fft.rfftfreq(len(chunk), 1.0 / sr)
 
-                total_energy = np.sum(fft_vals) or 1.0
+                total_energy = float(np.sum(fft_vals)) or 1.0
                 spectral_centroid = float(np.sum(freqs * fft_vals) / total_energy)
 
                 # Low band (80-300Hz: fundamental voice pitch)
-                low_mask = (freqs >= 80) & (freqs < 300)
+                low_mask = np.logical_and(freqs >= 80.0, freqs < 300.0)
                 low_ratio = float(np.sum(fft_vals[low_mask]) / total_energy)
 
                 # Mid band (300-2500Hz: formant/timbre range)
-                mid_mask = (freqs >= 300) & (freqs < 2500)
+                mid_mask = np.logical_and(freqs >= 300.0, freqs < 2500.0)
                 mid_ratio = float(np.sum(fft_vals[mid_mask]) / total_energy)
 
                 features.append([rms, zcr, spectral_centroid / 4000.0, low_ratio, mid_ratio])
 
         except Exception as e:
             logger.debug(
-                f"Direct WAV acoustic extraction skipped ({e}). Using rhythm/pause heuristics."
+                f"Direct PCM acoustic extraction skipped ({e}). Using rhythm/pause heuristics."
             )
             # Heuristic feature fallback: speech rate and pause dynamics
             for idx, seg in enumerate(segments):

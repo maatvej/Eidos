@@ -312,8 +312,10 @@ async def bulk_rename_speaker(
     if not speaker_emb:
         # Extract on demand from audio file if missing
         audio_p = Path(job.file_path)
+        companion_16k = audio_p.with_name(f"{audio_p.name}_16k.wav")
+        target_audio = companion_16k if companion_16k.exists() else audio_p
         engine = InferenceEngine()
-        speaker_emb = engine.extract_speaker_embedding(audio_p, matching_segments)
+        speaker_emb = engine.extract_speaker_embedding(target_audio, matching_segments)
 
     job.result.speaker_embeddings[clean_new] = speaker_emb
 

@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     TORCH_NUM_THREADS: int = 4
 
     # Comprehensive Profiling & Performance Diagnostics
-    PROFILING_ENABLED: bool = False
+    PROFILING_ENABLED: bool = True
 
     # Frontend Dist Directory for React SPA
     FRONTEND_DIST_DIR: Path = Path("./frontend/dist")
