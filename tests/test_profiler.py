@@ -367,3 +367,76 @@ def test_profile_context_finalize_branches(tmp_path: Path, monkeypatch: pytest.M
             _ = 1 + 1
         assert prof.result is not None
         assert "No significant CPU hotspots detected." in prof.result.summary_text
+
+
+def test_nested_profile_contexts_sync_and_async(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates that nested ProfileContext instances do not raise ValueError."""
+    monkeypatch.setattr(settings, "PROFILING_OUTPUT_DIR", tmp_path)
+
+    # 1. Nested sync contexts
+    with ProfileContext(name="outer_sync", enabled=True) as outer_prof:
+        with ProfileContext(name="inner_sync", enabled=True) as inner_prof:
+            calc = sum(x for x in range(100))
+            assert calc == 4950
+
+    assert outer_prof.result is not None
+    assert outer_prof.result.prof_path.exists()
+    assert inner_prof._profiler is None
+
+    # 2. Exception during profiler.disable() handling
+    ctx_disable_err = ProfileContext(name="err_disable", enabled=True)
+    ctx_disable_err.__enter__()
+    real_prof = ctx_disable_err._profiler
+    assert real_prof is not None
+    try:
+        with patch.object(real_prof, "disable", side_effect=RuntimeError("Disable failure")):
+            ctx_disable_err.__exit__(None, None, None)
+    finally:
+        real_prof.disable()
+    assert ctx_disable_err._profiler is None
+
+    # 3. Exception during _finalize_and_export() handling
+    ctx_export_err = ProfileContext(name="err_export", enabled=True)
+    ctx_export_err.__enter__()
+    with patch.object(
+        ctx_export_err, "_finalize_and_export", side_effect=RuntimeError("Finalize failure")
+    ):
+        ctx_export_err.__exit__(None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_nested_profile_decorators_and_middleware(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates nested decorators and middleware invocation with endpoint profiling decorators."""
+    monkeypatch.setattr(settings, "PROFILING_OUTPUT_DIR", tmp_path)
+    monkeypatch.setattr(settings, "PROFILING_ENABLED", True)
+
+    @profile_sync(name="inner_compute", subfolder="nested", enabled=True)
+    def inner_sync_compute(v: int) -> int:
+        return v * 3
+
+    @profile_async(name="outer_compute", subfolder="nested", enabled=True)
+    async def outer_async_compute(v: int) -> int:
+        await asyncio.sleep(0.001)
+        return inner_sync_compute(v) + 10
+
+    res = await outer_async_compute(5)
+    assert res == 25
+
+    # Test FastAPIProfilingMiddleware with endpoint decorated by @profile_async
+    test_app = FastAPI()
+    test_app.add_middleware(FastAPIProfilingMiddleware)
+
+    @test_app.get("/nested-endpoint")
+    @profile_async(name="endpoint_handler", subfolder="endpoints", enabled=True)
+    async def nested_endpoint() -> dict[str, str]:
+        return {"status": "nested_ok"}
+
+    async with AsyncClient(transport=ASGITransport(app=test_app), base_url="http://test") as ac:
+        resp = await ac.get("/nested-endpoint")
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "nested_ok"}
+        assert resp.headers.get("x-profile-enabled") == "true"

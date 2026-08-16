@@ -80,11 +80,17 @@ class Settings(BaseSettings):
     PROFILING_EXCLUDE_PATHS: list[str] = [
         "/static",
         "/django-static",
+        "/django_static",
+        "/assets",
         "/health",
         "/favicon.ico",
+        "/robots.txt",
         "/openapi.json",
+        "/api/v1/openapi.json",
         "/docs",
         "/redoc",
+        "/api/v1/events",
+        "/sse",
     ]
 
 

@@ -263,7 +263,13 @@ class ProfileContext(
 
         self._start_time = time.perf_counter()
         self._profiler = cProfile.Profile()
-        self._profiler.enable()
+        try:
+            self._profiler.enable()
+        except ValueError as err:
+            # Another profiler is already active in current thread
+            # (e.g. outer middleware, parent decorator, or concurrent coroutine)
+            logger.debug(f"Profiling skipped for '{self.name}': another profiler is active ({err})")
+            self._profiler = None
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -271,9 +277,18 @@ class ProfileContext(
         if not self.enabled or self._profiler is None:
             return
 
-        self._profiler.disable()
+        try:
+            self._profiler.disable()
+        except Exception as err:
+            logger.debug(f"Failed to disable profiler for '{self.name}': {err}")
+            self._profiler = None
+            return
+
         self._elapsed_time = time.perf_counter() - self._start_time
-        self._finalize_and_export()
+        try:
+            self._finalize_and_export()
+        except Exception as err:
+            logger.warning(f"Failed to finalize profile for '{self.name}': {err}")
 
     async def __aenter__(self) -> "ProfileContext":
         """Enters the asynchronous profiling context.
