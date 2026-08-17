@@ -222,6 +222,16 @@ split-on-trailing-comma = true
     "BLE001",
     "PLC0415",
 ]
+"rebuild.py" = [
+    "T201",
+    "S603",
+    "S607",
+    "BLE001",
+    "PLC0415",
+    "S105",
+    "S106",
+    "S107",
+]
 "app/core/profiler_cli.py" = [
     "T201",
 ]

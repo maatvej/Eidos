@@ -18,21 +18,20 @@
 
 ## Quick Start (Zero-Dependency Local Dev with uv & npm)
 
-Clone the repository, install Python backend and React frontend dependencies, build the SPA bundle, and start the unified server:
+Clone the repository and run the zero-touch rebuild script (cleans caches, resets database, syncs uv/npm, builds React frontend, and creates `admin`/`admin` superuser):
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/maatvej/Eidos.git
 cd Eidos
 
-# 2. Sync all locked Python dependencies and virtualenv via uv
-uv sync
+# 2. Full clean rebuild (Zero-Touch)
+# macOS / Linux:
+./rebuild.sh
+# Windows / Cross-platform:
+uv run python rebuild.py
 
-# 3. Install frontend dependencies and build the React SPA bundle
-npm --prefix frontend install
-npm --prefix frontend run build
-
-# 4. Launch unified server (Hot-reload enabled)
+# 3. Launch unified server (Hot-reload enabled)
 uv run python run_local.py
 ```
 
