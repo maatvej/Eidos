@@ -204,4 +204,51 @@ describe("TranscriptPlayer component", () => {
       useToastStore.getState().toasts.some((t) => t.message.includes("успешно переименован"))
     ).toBe(true);
   });
+
+  it("should show warning toast and keep modal open when attempting to save unchanged speaker name", async () => {
+    useAppStore.setState({
+      jobId: "test-job-123",
+      status: "SUCCESS",
+      transcript: mockTranscript,
+    });
+
+    render(<TranscriptPlayer />);
+
+    const speakerButtons = screen.getAllByTitle("Нажмите, чтобы переименовать Интервьюер");
+    fireEvent.click(speakerButtons[0]);
+
+    expect(screen.getByText("Переименовать спикера")).toBeInTheDocument();
+
+    // Click Save without changing speaker name
+    const saveBtn = screen.getByText("Сохранить");
+    fireEvent.click(saveBtn);
+
+    // Verify warning toast is shown and modal is STILL open
+    expect(
+      useToastStore.getState().toasts.some((t) =>
+        t.message.includes("совпадает с текущим")
+      )
+    ).toBe(true);
+    expect(screen.getByText("Переименовать спикера")).toBeInTheDocument();
+  });
+
+  it("should close modal when clicking cancel button or pressing Escape", async () => {
+    useAppStore.setState({
+      jobId: "test-job-123",
+      status: "SUCCESS",
+      transcript: mockTranscript,
+    });
+
+    render(<TranscriptPlayer />);
+
+    const speakerButtons = screen.getAllByTitle("Нажмите, чтобы переименовать Интервьюер");
+    fireEvent.click(speakerButtons[0]);
+    expect(screen.getByText("Переименовать спикера")).toBeInTheDocument();
+
+    // Press Escape on input
+    const input = screen.getByPlaceholderText("Введите имя (например, Иван Иванов)");
+    fireEvent.keyDown(input, { key: "Escape" });
+
+    expect(screen.queryByText("Переименовать спикера")).not.toBeInTheDocument();
+  });
 });

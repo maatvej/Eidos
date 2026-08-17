@@ -167,8 +167,16 @@ export const TranscriptPlayer: React.FC = () => {
       return;
     }
 
-    if (!targetOldSpeaker || targetOldSpeaker === cleanNewName) {
+    if (!targetOldSpeaker) {
       closeSpeakerRenameModal();
+      return;
+    }
+
+    if (targetOldSpeaker === cleanNewName) {
+      showToast(
+        `Имя спикера совпадает с текущим («${targetOldSpeaker}»). Укажите новое имя.`,
+        "warning"
+      );
       return;
     }
 
@@ -327,7 +335,10 @@ export const TranscriptPlayer: React.FC = () => {
                     <button
                       key={spk}
                       type="button"
-                      onClick={() => openSpeakerRenameModal(spk)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openSpeakerRenameModal(spk);
+                      }}
                       title={`Нажмите, чтобы переименовать ${spk}`}
                       style={{
                         backgroundColor: col.bg,
@@ -376,7 +387,10 @@ export const TranscriptPlayer: React.FC = () => {
                   <div className="flex items-center justify-between mb-2.5">
                     <button
                       type="button"
-                      onClick={() => openSpeakerRenameModal(utt.speaker)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openSpeakerRenameModal(utt.speaker);
+                      }}
                       style={{
                         backgroundColor: col.bg,
                         color: col.text,
@@ -440,10 +454,15 @@ export const TranscriptPlayer: React.FC = () => {
           aria-modal="true"
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 animate-in fade-in duration-150"
           onClick={(e) => {
-            if (e.target === e.currentTarget) closeSpeakerRenameModal();
+            if (e.target === e.currentTarget) {
+              closeSpeakerRenameModal();
+            }
           }}
         >
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary">
+          <div
+            className="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/15 rounded-2xl p-6 shadow-xl text-text-primary"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-200 dark:border-white/10">
               <h3 className="text-base font-extrabold text-text-primary flex items-center gap-2">
                 <Mic className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -466,13 +485,20 @@ export const TranscriptPlayer: React.FC = () => {
               <input
                 type="text"
                 autoFocus
+                onFocus={(e) => e.target.select()}
                 value={newSpeakerName}
                 onChange={(e) => setNewSpeakerName(e.target.value)}
                 placeholder="Введите имя (например, Иван Иванов)"
                 maxLength={100}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") executeSpeakerRename();
-                  if (e.key === "Escape") closeSpeakerRenameModal();
+                  if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                    e.preventDefault();
+                    executeSpeakerRename();
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    closeSpeakerRenameModal();
+                  }
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-950 border border-slate-300 dark:border-white/15 text-sm text-text-primary outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-sm"
               />
@@ -482,7 +508,7 @@ export const TranscriptPlayer: React.FC = () => {
               Быстрые варианты:
             </div>
             <div className="flex flex-wrap gap-1.5 mb-6">
-              {SUGGESTIONS.map((sug) => (
+              {SUGGESTIONS.filter((sug) => sug !== targetOldSpeaker).map((sug) => (
                 <button
                   key={sug}
                   type="button"
