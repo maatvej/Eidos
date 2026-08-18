@@ -103,14 +103,41 @@ def test_inference_engine_faster_whisper_import_error() -> None:
 
 
 def test_inference_engine_pyannote_loading_branches(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Validates pyannote pipeline loading on CUDA, MPS, and exception fallback."""
+    """Validates pyannote pipeline loading on CUDA, MPS, and exception fallback in local and remote modes."""
     engine = InferenceEngine()
-    monkeypatch.setattr(settings, "PYANNOTE_AUTH_TOKEN", "hf_valid_real_token")
 
+    # 0. Local models mode without local path activates local acoustic clustering
+    monkeypatch.setattr(settings, "LOCAL_MODELS_ONLY", True)
+    monkeypatch.setattr(settings, "PYANNOTE_LOCAL_MODEL_PATH", None)
+    engine._load_diarization_pipeline()
+    assert engine.diarization_pipeline is None
+
+    # 0b. Local models mode with local path loads local pipeline
+    mock_local_inst = MagicMock()
+    mock_pipeline_class_local = MagicMock(from_pretrained=MagicMock(return_value=mock_local_inst))
+    monkeypatch.setattr(settings, "PYANNOTE_LOCAL_MODEL_PATH", "./models/pyannote")
+    with (
+        patch.dict("sys.modules", {"pyannote.audio": MagicMock(Pipeline=mock_pipeline_class_local)}),
+        patch("torch.cuda.is_available", return_value=False),
+    ):
+        engine._load_diarization_pipeline()
+        assert engine.diarization_pipeline == mock_local_inst
+        mock_pipeline_class_local.from_pretrained.assert_called_with(
+            "./models/pyannote", local_files_only=True
+        )
+
+    # 0c. Remote mode with dummy token returns None
+    monkeypatch.setattr(settings, "LOCAL_MODELS_ONLY", False)
+    monkeypatch.setattr(settings, "PYANNOTE_LOCAL_MODEL_PATH", None)
+    monkeypatch.setattr(settings, "PYANNOTE_AUTH_TOKEN", "hf_dummy_token")
+    engine._load_diarization_pipeline()
+    assert engine.diarization_pipeline is None
+
+    # 1. CUDA branch with valid auth token
+    monkeypatch.setattr(settings, "LOCAL_MODELS_ONLY", False)
+    monkeypatch.setattr(settings, "PYANNOTE_AUTH_TOKEN", "hf_valid_real_token")
     mock_pipeline_inst = MagicMock()
     mock_pipeline_class = MagicMock(from_pretrained=MagicMock(return_value=mock_pipeline_inst))
-
-    # 1. CUDA branch
     with (
         patch.dict("sys.modules", {"pyannote.audio": MagicMock(Pipeline=mock_pipeline_class)}),
         patch("torch.cuda.is_available", return_value=True),
@@ -252,6 +279,8 @@ def test_inference_engine_load_models_with_faster_whisper(monkeypatch: pytest.Mo
     monkeypatch.setattr(settings, "WHISPER_COMPUTE_TYPE", "auto")
     monkeypatch.setattr(settings, "WHISPER_CPU_THREADS", 4)
     monkeypatch.setattr(settings, "WHISPER_NUM_WORKERS", 1)
+    monkeypatch.setattr(settings, "WHISPER_DOWNLOAD_ROOT", "./models/whisper")
+    monkeypatch.setattr(settings, "WHISPER_LOCAL_FILES_ONLY", True)
 
     with patch.dict("sys.modules", {"faster_whisper": MagicMock(WhisperModel=mock_whisper_class)}):
         engine.load_models()
@@ -261,6 +290,26 @@ def test_inference_engine_load_models_with_faster_whisper(monkeypatch: pytest.Mo
         assert kwargs["cpu_threads"] == 4
         assert kwargs["num_workers"] == 1
         assert kwargs["compute_type"] in ("int8", "float16")
+        assert kwargs["download_root"] == "./models/whisper"
+        assert kwargs["local_files_only"] is True
+
+    # Test with initial download permitted and cuda->cpu fallback branch
+    engine2 = InferenceEngine()
+    mock_whisper_class2 = MagicMock()
+    monkeypatch.setattr(settings, "WHISPER_DEVICE", "cuda")
+    monkeypatch.setattr(settings, "WHISPER_COMPUTE_TYPE", "float16")
+    monkeypatch.setattr(settings, "WHISPER_LOCAL_FILES_ONLY", False)
+    monkeypatch.setattr(settings, "ALLOW_MODEL_DOWNLOADS", True)
+    with (
+        patch("torch.cuda.is_available", return_value=False),
+        patch.dict("sys.modules", {"faster_whisper": MagicMock(WhisperModel=mock_whisper_class2)}),
+    ):
+        engine2.load_models()
+        assert engine2._is_loaded is True
+        _, kwargs2 = mock_whisper_class2.call_args
+        assert kwargs2["device"] == "cpu"
+        assert kwargs2["compute_type"] == "int8"
+        assert "local_files_only" not in kwargs2
 
 
 def test_ffmpeg_audio_processor_filter_graph(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -723,3 +772,20 @@ def test_inference_engine_extract_chunk_features_discrimination_and_branches() -
     # Short chunk triggering max_lag >= len(corr) fallback in pitch estimator
     feat_small_corr = engine._extract_chunk_features(np.ones(50, dtype=np.float32), sr, 32)
     assert len(feat_small_corr) == 32
+
+
+def test_configure_offline_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Validates configuration of offline environment variables when downloads are disabled."""
+    from app.core.config import Settings, configure_offline_environment
+
+    test_settings = Settings(
+        STORAGE_DIR=tmp_path / "storage",
+        PROFILING_OUTPUT_DIR=tmp_path / "profiles",
+        MODELS_DIR=tmp_path / "models",
+        ALLOW_MODEL_DOWNLOADS=False,
+        WHISPER_LOCAL_FILES_ONLY=True,
+    )
+    configure_offline_environment(test_settings)
+    assert test_settings.STORAGE_DIR.exists()
+    assert test_settings.PROFILING_OUTPUT_DIR.exists()
+    assert test_settings.MODELS_DIR.exists()

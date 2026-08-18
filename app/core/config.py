@@ -1,12 +1,15 @@
 # filename: app/core/config.py
-"""Application configuration with lightweight Local-Dev and Production controls."""
+"""Application configuration with lightweight Local-Dev, Offline Air-Gapped, and Production controls."""
 
+import os
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Core application settings with strict offline and local-only ML execution controls."""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     PROJECT_NAME: str = "Eidos Voice Intelligence"
@@ -18,6 +21,7 @@ class Settings(BaseSettings):
 
     # Storage (Local relative directory fallback)
     STORAGE_DIR: Path = Path("./local_storage")
+    MODELS_DIR: Path = Path("./models")
 
     # Database (Default to local SQLite file for zero-dependency execution)
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev_app.db"
@@ -26,9 +30,16 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 
-    # ML Models & Device Overrides
+    # Local & Air-Gapped Model Execution Policies
+    LOCAL_MODELS_ONLY: bool = True
+    ALLOW_MODEL_DOWNLOADS: bool = True
+    ALLOW_EXTERNAL_API_CALLS: bool = False
+
+    # Whisper Speech Recognition Settings
     WHISPER_MODEL_SIZE: str = "large-v3-turbo"
     WHISPER_FALLBACK_MODEL_SIZE: str = "medium"
+    WHISPER_DOWNLOAD_ROOT: str | None = None
+    WHISPER_LOCAL_FILES_ONLY: bool = False
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
     WHISPER_CPU_THREADS: int = 4
@@ -55,15 +66,16 @@ class Settings(BaseSettings):
 
     # Speaker Diarization Settings
     PYANNOTE_AUTH_TOKEN: str = "hf_dummy_token"
+    PYANNOTE_LOCAL_MODEL_PATH: str | None = None
     DIARIZATION_MIN_SPEAKERS: int | None = None
     DIARIZATION_MAX_SPEAKERS: int | None = None
     VOICE_SIMILARITY_THRESHOLD: float = 0.75
     VOICE_EMBEDDING_DIM: int = 32
 
-    # LLM & Conversation Intelligence Settings
-    LLM_API_KEY: str = "mock-key"
-    LLM_BASE_URL: str = "https://api.openai.com/v1"
-    LLM_MODEL_NAME: str = "gpt-4o"
+    # LLM & Conversation Intelligence Settings (Defaulting to Local Ollama/Offline NLP Engine)
+    LLM_API_KEY: str = "local-key"
+    LLM_BASE_URL: str = "http://localhost:11434/v1"
+    LLM_MODEL_NAME: str = "llama3"
     LLM_TEMPERATURE: float = 0.2
     LLM_MAX_TOKENS: int = 4096
     TORCH_NUM_THREADS: int = 4
@@ -95,6 +107,32 @@ class Settings(BaseSettings):
     ]
 
 
+def configure_offline_environment(app_settings: Settings) -> None:
+    """Configures global process environment variables for offline and telemetry-free ML execution.
+
+    Args:
+        app_settings: Instance of application Settings.
+
+    Returns:
+        None
+
+    Example:
+        >>> configure_offline_environment(settings)
+    """
+    app_settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    app_settings.PROFILING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    app_settings.MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not app_settings.ALLOW_MODEL_DOWNLOADS or app_settings.WHISPER_LOCAL_FILES_ONLY:
+        os.environ.setdefault("HF_HUB_OFFLINE", "1")
+        os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+        os.environ.setdefault("HF_DATASETS_OFFLINE", "1")
+
+    # Always disable telemetry and tracking
+    os.environ.setdefault("DISABLE_TELEMETRY", "1")
+    os.environ.setdefault("DO_NOT_TRACK", "1")
+    os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
+
+
 settings = Settings()
-settings.STORAGE_DIR.mkdir(parents=True, exist_ok=True)
-settings.PROFILING_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+configure_offline_environment(settings)

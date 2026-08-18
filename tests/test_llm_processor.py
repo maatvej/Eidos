@@ -352,3 +352,70 @@ async def test_extract_intelligence_custom_base_url_and_options(
         assert kwargs_called["json"]["temperature"] == 0.3
         assert kwargs_called["json"]["max_tokens"] == 2048
         assert kwargs_called["json"]["model"] == "llama3.1"
+
+
+def test_is_local_endpoint_matrix() -> None:
+    """Validates local loopback, private IPv4 subnet, and public URL classification."""
+    # Loopback and local domain addresses
+    assert LLMIntelligenceEngine.is_local_endpoint("http://localhost:11434/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://127.0.0.1:8000/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://0.0.0.0:1234/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://[::1]:11434/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://ai-server.local:8000/v1") is True
+
+    # RFC 1918 Private IPv4 subnets
+    assert LLMIntelligenceEngine.is_local_endpoint("http://192.168.1.100:8080/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://10.0.1.25:8000/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://172.16.0.10:8000/v1") is True
+    assert LLMIntelligenceEngine.is_local_endpoint("http://172.31.255.250:8000/v1") is True
+
+    # Public internet endpoints
+    assert LLMIntelligenceEngine.is_local_endpoint("https://api.openai.com/v1") is False
+    assert LLMIntelligenceEngine.is_local_endpoint("https://api.anthropic.com/v1") is False
+    assert LLMIntelligenceEngine.is_local_endpoint("https://openrouter.ai/api/v1") is False
+    assert LLMIntelligenceEngine.is_local_endpoint("http://example.com/v1") is False
+
+    # Edge cases: empty, None, and malformed strings
+    assert LLMIntelligenceEngine.is_local_endpoint("") is False
+    assert LLMIntelligenceEngine.is_local_endpoint("invalid-uri-scheme://??") is False
+
+    with patch("urllib.parse.urlparse", side_effect=Exception("Parsing failure")):
+        assert LLMIntelligenceEngine.is_local_endpoint("http://malformed-url.org") is False
+
+
+@pytest.mark.asyncio
+async def test_extract_intelligence_blocks_external_url_in_local_mode(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates that extract_intelligence never makes outbound HTTP calls when LOCAL_MODELS_ONLY is True."""
+    monkeypatch.setattr(settings, "LOCAL_MODELS_ONLY", True)
+    monkeypatch.setattr(settings, "ALLOW_EXTERNAL_API_CALLS", False)
+    monkeypatch.setattr(settings, "LLM_BASE_URL", "https://api.openai.com/v1")
+    monkeypatch.setattr(settings, "LLM_API_KEY", "sk-secret-key")
+
+    with patch("httpx.AsyncClient.post") as mock_post:
+        transcript = (
+            "SPEAKER_00: Мы полностью перешли на локальный инференс без внешних API. "
+            "SPEAKER_01: Согласовано. Задачи безопасности выполнены."
+        )
+        result = await engine.extract_intelligence(transcript, language="ru")
+
+        # Must not have made any network request
+        mock_post.assert_not_called()
+        assert isinstance(result, ConversationAnalysis)
+        assert len(result.executive_summary) > 0
+        assert len(result.key_decisions) > 0
+
+
+@pytest.mark.asyncio
+async def test_call_llm_api_blocked_in_local_mode(
+    engine: LLMIntelligenceEngine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Validates that _call_llm_api raises LLMServiceError when external URL is accessed under LOCAL_MODELS_ONLY."""
+    monkeypatch.setattr(settings, "LOCAL_MODELS_ONLY", True)
+    monkeypatch.setattr(settings, "ALLOW_EXTERNAL_API_CALLS", False)
+    monkeypatch.setattr(settings, "LLM_BASE_URL", "https://api.openai.com/v1")
+
+    with pytest.raises(LLMServiceError) as exc_info:
+        await engine._call_llm_api("Стенограмма встречи", is_russian=True)
+    assert "Outbound external API requests are blocked in local models mode" in str(exc_info.value)

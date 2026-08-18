@@ -467,15 +467,68 @@ class LocalDynamicSummarizer:
 
 
 class LLMIntelligenceEngine:
-    """Production-ready AI summarization and executive intelligence extraction engine."""
+    """Production-grade local AI summarization and executive intelligence extraction engine."""
 
     MAX_CHUNK_CHARS: int = 8000
+
+    @staticmethod
+    def is_local_endpoint(url: str) -> bool:
+        """Determines if the given API endpoint URL targets a local loopback or private LAN address.
+
+        Args:
+            url: The HTTP/HTTPS base URL string to validate.
+
+        Returns:
+            True if the URL points to a local or private address, False otherwise.
+
+        Example:
+            >>> LLMIntelligenceEngine.is_local_endpoint("http://localhost:11434/v1")
+            True
+            >>> LLMIntelligenceEngine.is_local_endpoint("https://api.openai.com/v1")
+            False
+        """
+        if not url:
+            return False
+        import ipaddress
+        import urllib.parse
+
+        try:
+            parsed = urllib.parse.urlparse(url)
+            host = (parsed.hostname or "").lower()
+            if not host:
+                return False
+            clean_host = host.strip("[]")
+            if clean_host in ("localhost",) or clean_host.endswith(".local"):
+                return True
+            try:
+                ip = ipaddress.ip_address(clean_host)
+                return ip.is_loopback or ip.is_private or ip.is_unspecified
+            except ValueError:
+                pass
+
+            private_prefixes = ("192.168.", "10.", *(f"172.{i}." for i in range(16, 32)))
+            return clean_host.startswith(tuple(private_prefixes))
+        except Exception:
+            return False
 
     @profile_async(name="llm_intelligence_extraction", subfolder="llm")
     async def extract_intelligence(
         self, full_transcript_text: str, language: str = "auto"
     ) -> ConversationAnalysis:
-        """Processes raw transcript text and returns structured executive intelligence."""
+        """Processes raw transcript text and returns structured executive intelligence locally.
+
+        Args:
+            full_transcript_text: Full raw speech transcript text.
+            language: Language code or auto detection string.
+
+        Returns:
+            ConversationAnalysis containing summary, action items, decisions, and sentiment.
+
+        Example:
+            >>> engine = LLMIntelligenceEngine()
+            >>> analysis = await engine.extract_intelligence("Hello world", language="en")
+            >>> print(analysis.overall_sentiment)
+        """
         if not full_transcript_text or not full_transcript_text.strip():
             logger.info("Received empty transcript text. Returning minimal default analysis.")
             return ConversationAnalysis(
@@ -499,6 +552,13 @@ class LLMIntelligenceEngine:
 
         processed_text = await self._prepare_transcript_text(cleaned_text)
 
+        is_local_url = self.is_local_endpoint(settings.LLM_BASE_URL)
+        if settings.LOCAL_MODELS_ONLY and not settings.ALLOW_EXTERNAL_API_CALLS and not is_local_url:
+            logger.info(
+                "Local models mode active with external LLM URL blocked. Running local dynamic NLP summarizer."
+            )
+            return self._run_local_dynamic_summarizer(processed_text, is_russian)
+
         if settings.LLM_API_KEY and settings.LLM_API_KEY.lower() not in ("mock-key", "", "none"):
             try:
                 analysis = await self._call_llm_api(processed_text, is_russian)
@@ -506,7 +566,7 @@ class LLMIntelligenceEngine:
                     return analysis
             except Exception as e:
                 logger.warning(
-                    f"External LLM API call failed ({e!s}). "
+                    f"LLM API call skipped or failed ({e!s}). "
                     "Falling back to dynamic local summarizer."
                 )
 
@@ -514,7 +574,18 @@ class LLMIntelligenceEngine:
 
     @profile_async(name="llm_transcript_chunking", subfolder="llm")
     async def _prepare_transcript_text(self, text: str) -> str:
-        """Chunks long transcripts asynchronously to fit context windows."""
+        """Chunks long transcripts asynchronously to fit context windows.
+
+        Args:
+            text: Full raw transcript string.
+
+        Returns:
+            Condensed or chunked transcript string.
+
+        Example:
+            >>> engine = LLMIntelligenceEngine()
+            >>> prepared = await engine._prepare_transcript_text("Long text...")
+        """
         if len(text) <= self.MAX_CHUNK_CHARS:
             return text
 
@@ -550,7 +621,26 @@ class LLMIntelligenceEngine:
         return " ".join(condensed_parts)
 
     async def _call_llm_api(self, text: str, is_russian: bool) -> ConversationAnalysis | None:
-        """Calls external OpenAI-compatible API to generate structured meeting intelligence."""
+        """Calls local or configured OpenAI-compatible API to generate structured meeting intelligence.
+
+        Args:
+            text: Prepared transcript text content to analyze.
+            is_russian: Flag indicating whether transcript language is Russian.
+
+        Returns:
+            Structured ConversationAnalysis object if successful, or None on failure.
+
+        Raises:
+            LLMServiceError: If API call fails or outbound external requests are blocked.
+
+        Example:
+            >>> engine = LLMIntelligenceEngine()
+            >>> analysis = await engine._call_llm_api("Meeting transcript text", is_russian=False)
+        """
+        is_local_url = self.is_local_endpoint(settings.LLM_BASE_URL)
+        if settings.LOCAL_MODELS_ONLY and not settings.ALLOW_EXTERNAL_API_CALLS and not is_local_url:
+            raise LLMServiceError("Outbound external API requests are blocked in local models mode.")
+
         import httpx
 
         system_prompt = (
@@ -617,7 +707,21 @@ class LLMIntelligenceEngine:
                 raise LLMServiceError(f"Network error during LLM request: {err!s}") from err
 
     def _parse_json_response(self, content: str, is_russian: bool) -> ConversationAnalysis:
-        """Parses and validates LLM raw response content into structured ConversationAnalysis."""
+        """Parses and validates LLM raw response content into structured ConversationAnalysis.
+
+        Args:
+            content: Raw JSON string or LLM response text.
+            is_russian: True if the conversation language is Russian.
+
+        Returns:
+            Validated ConversationAnalysis entity with extracted fields.
+
+        Example:
+            >>> engine = LLMIntelligenceEngine()
+            >>> analysis = engine._parse_json_response('{"title": "Demo"}', is_russian=True)
+            >>> print(analysis.title)
+            Demo
+        """
         clean_json = re.sub(r"^```(?:json)?\s*", "", content.strip(), flags=re.IGNORECASE)
         clean_json = re.sub(r"\s*```$", "", clean_json)
 
@@ -670,7 +774,20 @@ class LLMIntelligenceEngine:
 
     @profile_sync(name="local_dynamic_summarizer", subfolder="llm")
     def _run_local_dynamic_summarizer(self, text: str, is_russian: bool) -> ConversationAnalysis:
-        """Runs the dynamic local extractive summarizer on actual transcript content."""
+        """Runs the dynamic local extractive summarizer on actual transcript content offline.
+
+        Args:
+            text: Prepared transcript text content.
+            is_russian: True if transcript language is Russian.
+
+        Returns:
+            ConversationAnalysis with extracted title, summary, key decisions, action items, and sentiment.
+
+        Example:
+            >>> engine = LLMIntelligenceEngine()
+            >>> analysis = engine._run_local_dynamic_summarizer("Текст стенограммы", is_russian=True)
+            >>> print(analysis.title)
+        """
         sentences = LocalDynamicSummarizer.split_into_sentences(text)
         title = LocalDynamicSummarizer.extract_title(sentences, is_russian)
         summary = LocalDynamicSummarizer.extract_summary(sentences, is_russian)

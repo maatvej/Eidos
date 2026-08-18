@@ -29,7 +29,20 @@ class InferenceEngine:
         self._is_loaded = False
 
     def load_models(self) -> None:
-        """Initializes heavy model weights on startup or background worker init."""
+        """Initializes heavy model weights on startup or background worker init.
+
+        Loads Faster-Whisper speech-to-text models and PyAnnote or local acoustic diarization
+        pipelines in air-gapped offline mode without external API calls.
+
+        Returns:
+            None
+
+        Example:
+            >>> engine = InferenceEngine()
+            >>> engine.load_models()
+            >>> engine._is_loaded
+            True
+        """
         if self._is_loaded:
             return
 
@@ -38,6 +51,15 @@ class InferenceEngine:
         self._is_loaded = True
 
     def _load_whisper_model(self) -> None:
+        """Loads Faster-Whisper ASR model using local offline files or graceful local fallback.
+
+        Returns:
+            None
+
+        Example:
+            >>> engine = InferenceEngine()
+            >>> engine._load_whisper_model()
+        """
         logger.info(f"Loading Faster-Whisper model ({settings.WHISPER_MODEL_SIZE})...")
         try:
             from faster_whisper import WhisperModel
@@ -59,13 +81,21 @@ class InferenceEngine:
                 device = "cpu"
                 compute_type = "int8"
 
+            whisper_kwargs: dict[str, Any] = {
+                "device": device,
+                "compute_type": compute_type,
+                "cpu_threads": settings.WHISPER_CPU_THREADS,
+                "num_workers": settings.WHISPER_NUM_WORKERS,
+            }
+            if settings.WHISPER_DOWNLOAD_ROOT:
+                whisper_kwargs["download_root"] = settings.WHISPER_DOWNLOAD_ROOT
+            if settings.WHISPER_LOCAL_FILES_ONLY or not settings.ALLOW_MODEL_DOWNLOADS:
+                whisper_kwargs["local_files_only"] = True
+
             try:
                 self.whisper_model = WhisperModel(
                     settings.WHISPER_MODEL_SIZE,
-                    device=device,
-                    compute_type=compute_type,
-                    cpu_threads=settings.WHISPER_CPU_THREADS,
-                    num_workers=settings.WHISPER_NUM_WORKERS,
+                    **whisper_kwargs,
                 )
                 logger.info(
                     f"Faster-Whisper ({settings.WHISPER_MODEL_SIZE}) loaded successfully on {device} ({compute_type}, threads={settings.WHISPER_CPU_THREADS})."
@@ -77,10 +107,7 @@ class InferenceEngine:
                 )
                 self.whisper_model = WhisperModel(
                     settings.WHISPER_FALLBACK_MODEL_SIZE,
-                    device=device,
-                    compute_type=compute_type,
-                    cpu_threads=settings.WHISPER_CPU_THREADS,
-                    num_workers=settings.WHISPER_NUM_WORKERS,
+                    **whisper_kwargs,
                 )
                 logger.info(
                     f"Faster-Whisper fallback ({settings.WHISPER_FALLBACK_MODEL_SIZE}) loaded on {device}."
@@ -92,7 +119,18 @@ class InferenceEngine:
             self.whisper_model = None
 
     def _load_diarization_pipeline(self) -> None:
-        if not settings.PYANNOTE_AUTH_TOKEN or settings.PYANNOTE_AUTH_TOKEN == "hf_dummy_token":
+        """Loads speaker diarization pipeline locally or activates offline acoustic timbre clustering.
+
+        Returns:
+            None
+
+        Example:
+            >>> engine = InferenceEngine()
+            >>> engine._load_diarization_pipeline()
+        """
+        if (
+            not settings.PYANNOTE_AUTH_TOKEN or settings.PYANNOTE_AUTH_TOKEN == "hf_dummy_token"
+        ) and not settings.PYANNOTE_LOCAL_MODEL_PATH:
             logger.info(
                 "PyAnnote auth token not configured. Advanced acoustic clustering engine active."
             )
@@ -102,8 +140,15 @@ class InferenceEngine:
         try:
             from pyannote.audio import Pipeline
 
+            model_source = settings.PYANNOTE_LOCAL_MODEL_PATH or "pyannote/speaker-diarization-3.1"
+            pipeline_kwargs: dict[str, Any] = {}
+            if settings.PYANNOTE_AUTH_TOKEN and not settings.PYANNOTE_LOCAL_MODEL_PATH:
+                pipeline_kwargs["token"] = settings.PYANNOTE_AUTH_TOKEN
+            if settings.PYANNOTE_LOCAL_MODEL_PATH or not settings.ALLOW_MODEL_DOWNLOADS:
+                pipeline_kwargs["local_files_only"] = True
+
             self.diarization_pipeline = Pipeline.from_pretrained(
-                "pyannote/speaker-diarization-3.1", token=settings.PYANNOTE_AUTH_TOKEN
+                model_source, **pipeline_kwargs
             )
             if self.diarization_pipeline:
                 if torch.cuda.is_available():
@@ -113,7 +158,7 @@ class InferenceEngine:
             logger.info("PyAnnote speaker diarization pipeline loaded successfully.")
         except Exception as e:
             logger.warning(
-                f"PyAnnote pipeline initialization failed ({e}). Using acoustic feature clustering."
+                f"PyAnnote pipeline initialization skipped ({e}). Using acoustic feature clustering."
             )
             self.diarization_pipeline = None
 
